@@ -117,6 +117,12 @@
             white-space: nowrap;
         }
 
+        .placeholder-btn {
+            visibility: hidden; /* 核心：隐藏内容，保留空间 */
+            pointer-events: none; /* 防止用户误触点击 */
+            opacity: 0; /* 双重保险，确保完全透明 */
+        }
+
         button:hover {
             background-color: #357abd;
             transform: translateY(-1px);
@@ -238,6 +244,7 @@
                 <div class="form-row">
                     <label>经度</label>
                     <input id="lng" type="number" step="any">
+                    <button class="btn-convert placeholder-btn" disabled>转换</button>
                 </div>
                 <div class="form-row">
                     <label>纬度</label>
@@ -252,6 +259,7 @@
                 <div class="form-row">
                     <label>X</label>
                     <input id="x" type="number">
+                    <button class="btn-convert placeholder-btn" disabled>转换</button>
                 </div>
                 <div class="form-row">
                     <label>Y</label>
@@ -288,6 +296,7 @@
             <div class="form-row">
                 <label>经度</label>
                 <input id="mapTransLng" type="number">
+                <button class="btn-convert placeholder-btn" disabled>转换</button>
             </div>
             <div class="form-row">
                 <label>纬度</label>
