@@ -1,1 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>坐标转换工具</title>
+    <style>
+        /* 1. 全局重置与基础样式 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            /* 现代感背景渐变 */
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-size: 14px;
+            color: #333;
+        }
+
+        /* 2. 主容器：支持响应式换行的现代卡片风格 */
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            /* 允许窄屏时换行 */
+            max-width: 960px;
+            /* 限制最大宽度 */
+            width: 100%;
+            /* 小屏时自动撑满 */
+            background-color: rgba(255, 255, 255, 0.9);
+            /* 磨砂玻璃质感 */
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            gap: 15px;
+        }
+
+        /* 3. 通用面板样式 */
+        .panel {
+            flex: 1;
+            min-width: 280px;
+            /* 防止面板被压缩得太窄 */
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* 左右面板分隔线 */
+        .left-panel {
+            padding-right: 30px;
+            border-right: 1px solid #eee;
+        }
+
+        /* 4. 标题样式 */
+        .panel-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        /* 5. 表单行布局 */
+        .form-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .form-row label {
+            min-width: 60px;
+            font-weight: 500;
+            color: #555;
+            text-align: right;
+        }
+
+        /* 6. 输入框与下拉框：现代极简风 */
+        .form-row input,
+        .form-row select {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #fafafa;
+            font-size: 13px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-row input:focus,
+        .form-row select:focus {
+            border-color: #4a90e2;
+            /* 聚焦时的主题色 */
+            background-color: #fff;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
+        }
+
+        /* 7. 按钮样式：现代扁平化 */
+        button {
+            background-color: #4a90e2;
+            color: #fff;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background-color: #357abd;
+            transform: translateY(-1px);
+            /* 悬浮微动效 */
+            box-shadow: 0 4px 10px rgba(74, 144, 226, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* 8. 功能区块：正算、反算 */
+        .section-box {
+            border: 1px solid #f0f0f0;
+            padding: 10px;
+            background-color: #fcfcfc;
+            border-radius: 10px;
+            margin-top: 2px;
+        }
+
+        .section-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: block;
+            color: #4a90e2;
+            /* 主题色 */
+            font-size: 14px;
+        }
+
+        /* 9. 针对反算区域特有的地图下拉框 */
+        .map-select-row {
+            display: flex;
+            align-items: center;
+            margin-top: 12px;
+            gap: 10px;
+        }
+
+        .map-select-row select {
+            flex: 2;
+        }
+
+        .map-select-row button {
+            flex: 1;
+        }
+
+        /* 10. 结果显示区域 */
+        .result-box {
+            flex: 1;
+            min-height: 140px;
+            max-height: 250px;
+            resize: none;
+            border: 1.5px dashed #d0d0d0;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 10px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            color: #2c3e50;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .result-box:focus {
+            border-color: #4a90e2;
+        }
+
+        /* 📱 响应式适配：窄屏自动变为上下布局 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                gap: 20px;
+            }
+
+            .panel {
+                min-width: 100%;
+                /* 强制占满整行 */
+            }
+
+            /* 移除窄屏下的左侧分隔线，改为底部横线 */
+            .left-panel {
+                padding-right: 0;
+                padding-bottom: 20px;
+                border-right: none;
+                border-bottom: 1px solid #eee;
+            }
+
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- 左侧：大地高斯投影坐标转换 -->
+        <div class="panel left-panel">
+            <div class="panel-title">大地高斯投影坐标转换</div>
+
+            <!-- 全局设置 -->
+            <div class="form-row">
+                <label>椭球模型</label>
+                <select id="ellipsoids">
+                    <option>CGCS2000</option>
+                    <option>WGS84</option>
+                    <option>1980国家大地坐标系</option>
+                    <option>克拉索夫斯基椭球体</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label>投影带</label>
+                <select id="zonePattern">
+                    <option>六度带</option>
+                    <option>三度带</option>
+                </select>
+            </div>
+
+            <!-- 正算区域 -->
+            <div class="section-box">
+                <span class="section-title">正算</span>
+                <div class="form-row">
+                    <label>经度</label>
+                    <input id="lng" type="number" step="any">
+                </div>
+                <div class="form-row">
+                    <label>纬度</label>
+                    <input id="lat" type="number">
+                    <button id="gaussForward">转换</button>
+                </div>
+            </div>
+
+            <!-- 反算区域 -->
+            <div class="section-box">
+                <span class="section-title">反算</span>
+                <div class="form-row">
+                    <label>X</label>
+                    <input id="x" type="number">
+                </div>
+                <div class="form-row">
+                    <label>Y</label>
+                    <input id="y" type="number">
+                    <button id="gaussInverse">转换</button>
+                </div>
+
+                <div class="form-row">
+                    <label style="width: auto; margin-right: 5px;">地图</label>
+                    <select id="map">
+                        <option>百度</option>
+                        <option>高德</option>
+                    </select>
+                    <button id="gaussInverseDM">国内转换</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：国内地图坐标转换 -->
+        <div class="panel right-panel">
+            <div class="panel-title">国内地图坐标转换</div>
+
+            <div class="form-row">
+                <label>转换方式</label>
+                <select id="transPattern">
+                    <option>WGS84转GCJ02</option>
+                    <option>GCJ02转WGS84</option>
+                    <option>WGS84转BD09</option>
+                    <option>BD09转WGS84</option>
+                    <option>GCJ02转BD09</option>
+                    <option>BD09转GCJ02</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label>经度</label>
+                <input id="mapTransLng" type="number">
+            </div>
+            <div class="form-row">
+                <label>纬度</label>
+                <input id="mapTransLat" type="number">
+                <button id="mapTrans">转换</button>
+            </div>
+
+            <!-- 结果显示区域 -->
+            <div class="result" style="flex:1; display: flex;">
+                <textarea class="result-box" id="result" readonly>
+                </textarea>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+<script>
+    /**
+     * 1. 椭球参数配置
+     */
+    const Ellipsoids = {
+        "CGCS2000": { a: 6378137, b: 6356752.31414036 },
+        "WGS84": { a: 6378137, b: 6356752.31424518 },
+        "1980国家大地坐标系": { a: 6378140, b: 6356755.28815753 },
+        "克拉索夫斯基椭球体": { a: 6378245, b: 6356863.01877305 }
+    };
+
+    /**
+     * 2. 辅助计算函数
+     */
+    function calculateGaussParams(a, b) {
+        const e1 = Math.sqrt(a * a - b * b) / a;
+        const e2 = Math.sqrt(a * a - b * b) / b;
+        const m0 = a * (1 - e1 * e1);
+        const m2 = 1.5 * m0 * e1 * e1;
+        const m4 = 1.25 * m2 * e1 * e1;
+        const m6 = (7.0 / 6) * m4 * e1 * e1;
+        const m8 = (9.0 / 8) * m6 * e1 * e1;
+        const a0 = m0 + m2 / 2 + (3.0 / 8) * m4 + (5.0 / 16) * m6 + (35.0 / 128) * m8;
+        const a2 = 0.5 * (m2 + m4) + (15.0 / 32) * m6 + (7.0 / 16) * m8;
+        const a4 = (1.0 / 8) * m4 + (3.0 / 16) * m6 + (7.0 / 32) * m8;
+        const a6 = (1.0 / 32) * m6 + (1.0 / 16) * m8;
+        const a8 = (1.0 / 128) * m8;
+        // 仅返回衍生参数，不返回 a
+        return { e1, e2, a0, a2, a4, a6, a8 };
+    }
+
+    /**
+     * 3. 高斯投影正算 (经纬度 -> 平面坐标)
+     */
+    function gaussForward(lng, lat, refEllip = "CGCS2000", zonePattern = "六度带") {
+        const { a, b } = Ellipsoids[refEllip] ?? Ellipsoids.CGCS2000;
+        const { e1, e2, a0, a2, a4, a6, a8 } = calculateGaussParams(a, b);
+
+        let zoneNum, L0;
+        if (zonePattern === "三度带") {
+            zoneNum = Math.round(lng / 3);
+            L0 = zoneNum * 3;
+        } else {
+            zoneNum = Math.floor(lng / 6) + 1;
+            L0 = 6 * zoneNum - 3;
+        }
+
+        const B_rad = lat * Math.PI / 180;
+        const tanB = Math.tan(B_rad);
+        const cosB = Math.cos(B_rad);
+        const roh_deg = 180 / Math.PI;
+        const eta = e2 * cosB;
+        const n = a / Math.sqrt(1 - e1 * e1 * Math.sin(B_rad) ** 2);
+        const dl = (lng - L0) / roh_deg;
+
+        const centerX = a0 * B_rad
+            - (a2 / 2) * Math.sin(2 * B_rad)
+            + (a4 / 4) * Math.sin(4 * B_rad)
+            - (a6 / 6) * Math.sin(6 * B_rad)
+            + (a8 / 8) * Math.sin(8 * B_rad);
+
+        let x = centerX;
+        x += (n / 2) * tanB * cosB ** 2 * dl ** 2;
+        x += (n / 24) * tanB * (5 - tanB ** 2 + 9 * eta ** 2 + 4 * eta ** 4) * (cosB * dl) ** 4;
+        x += (n / 720) * tanB * (61 - 58 * tanB ** 2 + tanB ** 4) * (cosB * dl) ** 6;
+
+        let y = n * cosB * dl;
+        y += (n / 6) * (1 - tanB ** 2 + eta ** 2) * (cosB * dl) ** 3;
+        y += (n / 120) * (5 - 18 * tanB ** 2 + tanB ** 4 + 14 * eta ** 2 - 58 * (eta * tanB) ** 2) * (cosB * dl) ** 5;
+
+        y = y + 500000 + zoneNum * 1000000;
+
+        return { x: Number(x.toFixed(3)), y: Number(y.toFixed(3)) };
+    }
+
+    /**
+     * 4. 高斯投影反算 (平面坐标 -> 经纬度)
+     */
+    function gaussInverse(x, y, refEllip = "CGCS2000", zonePattern = "六度带") {
+        const { a, b } = Ellipsoids[refEllip] ?? Ellipsoids.CGCS2000;
+        const { e1, e2, a0, a2, a4, a6, a8 } = calculateGaussParams(a, b);
+
+        // 解析带号
+        let zoneNum;
+        if (y > 1000000) {
+            zoneNum = Math.floor(y / 1000000);
+            y = y - 1000000 * zoneNum;
+        } else if (y < 1000000 && zonePattern === "三度带") {
+            zoneNum = 40;
+        } else {
+            zoneNum = 21;
+        }
+
+        y = y - 500000; // 去除假偏移
+
+        // 计算中央经线
+        const L0 = zonePattern === "三度带" ? 3 * zoneNum : 6 * zoneNum - 3;
+
+        // 迭代计算底点纬度 Bf
+        let Bf_i = x / a0;
+        let Bf, epsilon;
+        do {
+            const F = (a2 / -2) * Math.sin(2 * Bf_i)
+                + (a4 / 4) * Math.sin(4 * Bf_i)
+                - (a6 / 6) * Math.sin(6 * Bf_i)
+                + (a8 / 8) * Math.sin(8 * Bf_i);
+            Bf = (x - F) / a0;
+            epsilon = Bf - Bf_i;
+            Bf_i = Bf;
+        } while (Math.abs(epsilon) >= 4.8e-10);
+
+        // 后续计算
+        const sinBf = Math.sin(Bf);
+        const cosBf = Math.cos(Bf);
+        const tanBf = Math.tan(Bf);
+        const etafSqr = (e2 * cosBf) ** 2;
+        const Mf = a * (1 - e1 * e1) / (1 - e1 * e1 * sinBf ** 2) ** 1.5;
+        const Nf = a / Math.sqrt(1 - e1 * e1 * sinBf ** 2);
+
+        // 计算经度
+        const L_rad = y / (Nf * cosBf)
+            - (1 + 2 * tanBf ** 2 + etafSqr) * y ** 3 / (6 * Nf ** 3 * cosBf)
+            + (5 + 28 * tanBf ** 2 + 24 * tanBf ** 4 + 6 * etafSqr + 8 * etafSqr * tanBf ** 2) * y ** 5 / (120 * Nf ** 5 * cosBf);
+
+        const lng = L_rad * 180 / Math.PI + L0;
+
+        // 计算纬度
+        const B_rad = Bf
+            - (tanBf * y ** 2) / (2 * Mf * Nf)
+            + tanBf * (5 + 3 * tanBf ** 2 + etafSqr - 9 * etafSqr * tanBf ** 2) * y ** 4 / (24 * Mf * Nf ** 3)
+            - tanBf * (61 + 90 * tanBf ** 2 + 45 * tanBf ** 4) * y ** 6 / (720 * Mf * Nf ** 5);
+
+        const lat = B_rad * 180 / Math.PI;
+
+        return { lng: Number(lng.toFixed(8)), lat: Number(lat.toFixed(8)) };
+    }
+
+    /**
+     * 5. 地图坐标系转换 (WGS, GCJ, BD)
+     */
+    const MapParams = { a: 6378245, ee: 6.69342162296594e-3 };
+
+    function transLat(lng, lat) {
+        return -100 + 2 * lng + 3 * lat + 0.2 * lat ** 2 + 0.1 * lng * lat + 0.2 * Math.sqrt(Math.abs(lng))
+            + (20 * Math.sin(6 * lng * Math.PI) + 20 * Math.sin(2 * lng * Math.PI)) * 2 / 3.0
+            + (20 * Math.sin(lat * Math.PI) + 40 * Math.sin(lat / 3 * Math.PI)) * 2 / 3.0
+            + (160 * Math.sin(lat / 12 * Math.PI) + 320 * Math.sin(lat * Math.PI / 30)) * 2 / 3.0;
+    }
+
+    function transLng(lng, lat) {
+        return 300 + lng + 2 * lat + 0.1 * lng ** 2 + 0.1 * lng * lat + 0.1 * Math.sqrt(Math.abs(lng))
+            + (20 * Math.sin(6 * lng * Math.PI) + 20 * Math.sin(2 * lng * Math.PI)) * 2 / 3.0
+            + (20 * Math.sin(lng * Math.PI) + 40 * Math.sin(lng / 3 * Math.PI)) * 2 / 3.0
+            + (150 * Math.sin(lng / 12 * Math.PI) + 300 * Math.sin(lng / 30 * Math.PI)) * 2 / 3.0;
+    }
+
+    function transform(lng, lat) {
+        const radLat = lat / 180 * Math.PI;
+        let magic = Math.sin(radLat);
+        magic = 1 - MapParams.ee * magic * magic;
+        const sqrtMagic = Math.sqrt(magic);
+
+        let dLng = transLng(lng - 105, lat - 35);
+        let dLat = transLat(lng - 105, lat - 35);
+
+        dLng = (dLng * 180) / (MapParams.a / sqrtMagic * Math.cos(radLat) * Math.PI);
+        dLat = (dLat * 180) / ((MapParams.a * (1 - MapParams.ee)) / (magic * sqrtMagic) * Math.PI);
+
+        return [dLng, dLat];
+    }
+
+    function wgs2gcj(wgsLng, wgsLat) {
+        const [dLng, dLat] = transform(wgsLng, wgsLat);
+        return {
+            gcjLng: Number((wgsLng + dLng).toFixed(6)),
+            gcjLat: Number((wgsLat + dLat).toFixed(6))
+        };
+    }
+
+    function gcj2wgs(gcjLng, gcjLat) {
+        let wgsLng = gcjLng;
+        let wgsLat = gcjLat;
+
+        for (let i = 1; i <= 10; i++) {
+            const [dLng, dLat] = transform(wgsLng, wgsLat);
+            const deltaLng = gcjLng - (wgsLng + dLng);
+            const deltaLat = gcjLat - (wgsLat + dLat);
+
+            if (Math.abs(deltaLng) < 1e-6 && Math.abs(deltaLat) < 1e-6) break;
+
+            wgsLng += deltaLng;
+            wgsLat += deltaLat;
+        }
+
+        return {
+            wgsLng: Number(wgsLng.toFixed(6)),
+            wgsLat: Number(wgsLat.toFixed(6))
+        };
+    }
+
+    function gcj2bd(gcjLng, gcjLat) {
+        const z = Math.sqrt(gcjLng ** 2 + gcjLat ** 2) + 0.00002 * Math.sin(gcjLat * Math.PI * 3000.0 / 180);
+        const theta = Math.atan2(gcjLat, gcjLng) + 0.000003 * Math.cos(gcjLng * Math.PI * 3000.0 / 180);
+        return {
+            bdLng: Number((z * Math.cos(theta) + 0.0065).toFixed(6)),
+            bdLat: Number((z * Math.sin(theta) + 0.006).toFixed(6))
+        };
+    }
+
+    function bd2gcj(bdLng, bdLat) {
+        const x = bdLng - 0.0065;
+        const y = bdLat - 0.006;
+        const z = Math.sqrt(x ** 2 + y ** 2) - 0.00002 * Math.sin(y * Math.PI * 3000.0 / 180);
+        const theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * Math.PI * 3000.0 / 180);
+        return {
+            gcjLng: Number((z * Math.cos(theta)).toFixed(6)),
+            gcjLat: Number((z * Math.sin(theta)).toFixed(6))
+        };
+    }
+
+    function wgs2bd(wgsLng, wgsLat) {
+        const { gcjLng, gcjLat } = wgs2gcj(wgsLng, wgsLat);
+        return gcj2bd(gcjLng, gcjLat);
+    }
+
+    function bd2wgs(bdLng, bdLat) {
+        const { gcjLng, gcjLat } = bd2gcj(bdLng, bdLat);
+        return gcj2wgs(gcjLng, gcjLat);
+    }
+
+
+    // 按钮绑定函数
+    function gaussForwardBtn() {
+        let lng = document.getElementById("lng").valueAsNumber;
+        let lat = document.getElementById("lat").valueAsNumber;
+
+        if (Number.isNaN(lng) || Number.isNaN(lat)) {
+            alert("请输入经度和纬度");
+        } else {
+            let ellipPattern = document.getElementById("ellipsoids").value;
+            let zonePattern = document.getElementById("zonePattern").value;
+            let { x, y } = gaussForward(lng, lat, ellipPattern, zonePattern);
+
+            document.getElementById("result").value =
+                `高斯投影正算结果(${zonePattern})
+
+X: ${x}
+Y: ${y}
+
+参考椭球： ${ellipPattern}
+精度：0.001米`;
+        }
+    }
+
+    function gaussInverseBtn() {
+        let x = document.getElementById("x").valueAsNumber;
+        let y = document.getElementById("y").valueAsNumber;
+
+        if (Number.isNaN(x) || Number.isNaN(y)) {
+            alert("请输入X和Y值");
+        } else {
+            let ellipPattern = document.getElementById("ellipsoids").value;
+            let zonePattern = document.getElementById("zonePattern").value;
+            let { lng, lat } = gaussInverse(x, y, ellipPattern, zonePattern);
+
+            document.getElementById("result").value =
+                `高斯投影反算结果(${zonePattern})
+
+经度: ${lng}
+纬度: ${lat}
+
+参考椭球： ${ellipPattern}
+精度：0.0001秒`;
+        }
+    }
+
+    function gaussInverseDMBtn() {
+        let x = document.getElementById("x").valueAsNumber;
+        let y = document.getElementById("y").valueAsNumber;
+        let demesticMap = document.getElementById("map").value;
+
+        if (Number.isNaN(x) || Number.isNaN(y)) {
+            alert("请输入X和Y值");
+        } else {
+            let ellipPattern = document.getElementById("ellipsoids").value;
+            let zonePattern = document.getElementById("zonePattern").value;
+            let { lng, lat } = gaussInverse(x, y, ellipPattern, zonePattern);
+            let dmLng, dmLat;
+
+            if (demesticMap === "百度") {
+                ({ bdLng: dmLng, bdLat: dmLat } = wgs2bd(lng, lat));
+            } else {
+                ({ gcjLng: dmLng, gcjLat: dmLat } = wgs2gcj(lng, lat));
+            }
+
+            document.getElementById("result").value =
+                `高斯投影反算结果(${zonePattern} - ${demesticMap}地图坐标）
+
+经度: ${dmLng}
+纬度: ${dmLat}
+
+参考椭球： ${ellipPattern}
+精度：0.0001秒`;
+        }
+    }
+
+    function mapTransBtn() {
+        let transPattern = document.getElementById("transPattern").value;
+        let srcLng = document.getElementById("mapTransLng").valueAsNumber;
+        let srcLat = document.getElementById("mapTransLat").valueAsNumber;
+
+        if (Number.isNaN(srcLng) || Number.isNaN(srcLat)) {
+            alert("请输入经度和纬度");
+        } else {
+            let tgtLng, tgtLat;
+            switch (transPattern) {
+                case "WGS84转GCJ02":
+                    ({ gcjLng: tgtLng, gcjLat: tgtLat } = wgs2gcj(srcLng, srcLat));
+                    break;
+                case "GCJ02转WGS84":
+                    ({ wgsLng: tgtLng, wgsLat: tgtLat } = gcj2wgs(srcLng, srcLat));
+                    break;
+                case "WGS84转BD09":
+                    ({ bdLng: tgtLng, bdLat: tgtLat } = wgs2bd(srcLng, srcLat));
+                    break;
+                case "BD09转WGS84":
+                    ({ wgsLng: tgtLng, wgsLat: tgtLat } = bd2wgs(srcLng, srcLat));
+                    break;
+                case "GCJ02转BD09":
+                    ({ bdLng: tgtLng, bdLat: tgtLat } = gcj2bd(srcLng, srcLat));
+                    break;
+                case "BD09转GCJ02":
+                    ({ gcjLng: tgtLng, gcjLat: tgtLat } = bd2gcj(srcLng, srcLat));
+                    break;
+            }
+
+
+            document.getElementById("result").value =
+                `${transPattern}结果
+
+经度: ${tgtLng}
+纬度: ${tgtLat}`;
+        }
+    }
+
+
+    document.getElementById("gaussForward")?.addEventListener("click", gaussForwardBtn);
+    document.getElementById("gaussInverse")?.addEventListener("click", gaussInverseBtn);
+    document.getElementById("gaussInverseDM")?.addEventListener("click", gaussInverseDMBtn);
+    document.getElementById("mapTrans")?.addEventListener("click", mapTransBtn);
+</script>
+
+</html>
