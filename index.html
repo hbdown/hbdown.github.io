@@ -118,9 +118,12 @@
         }
 
         .placeholder-btn {
-            visibility: hidden; /* 核心：隐藏内容，保留空间 */
-            pointer-events: none; /* 防止用户误触点击 */
-            opacity: 0; /* 双重保险，确保完全透明 */
+            visibility: hidden;
+            /* 核心：隐藏内容，保留空间 */
+            pointer-events: none;
+            /* 防止用户误触点击 */
+            opacity: 0;
+            /* 双重保险，确保完全透明 */
         }
 
         button:hover {
@@ -172,7 +175,6 @@
         .result-box {
             flex: 1;
             min-height: 140px;
-            max-height: 250px;
             resize: none;
             border: 1.5px dashed #d0d0d0;
             background-color: #f8f9fa;
@@ -208,7 +210,6 @@
                 border-right: none;
                 border-bottom: 1px solid #eee;
             }
-
         }
     </style>
 </head>
@@ -549,6 +550,7 @@
     function gaussForwardBtn() {
         let lng = document.getElementById("lng").valueAsNumber;
         let lat = document.getElementById("lat").valueAsNumber;
+        const resultBox = document.getElementById("result");
 
         if (Number.isNaN(lng) || Number.isNaN(lat)) {
             alert("请输入经度和纬度");
@@ -557,7 +559,7 @@
             let zonePattern = document.getElementById("zonePattern").value;
             let { x, y } = gaussForward(lng, lat, ellipPattern, zonePattern);
 
-            document.getElementById("result").value =
+            resultBox.value =
                 `高斯投影正算结果(${zonePattern})
 
 X: ${x}
@@ -565,12 +567,18 @@ Y: ${y}
 
 参考椭球： ${ellipPattern}
 精度：0.001米`;
+
+            resultBox.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
         }
     }
 
     function gaussInverseBtn() {
         let x = document.getElementById("x").valueAsNumber;
         let y = document.getElementById("y").valueAsNumber;
+        const resultBox = document.getElementById("result");
 
         if (Number.isNaN(x) || Number.isNaN(y)) {
             alert("请输入X和Y值");
@@ -579,7 +587,7 @@ Y: ${y}
             let zonePattern = document.getElementById("zonePattern").value;
             let { lng, lat } = gaussInverse(x, y, ellipPattern, zonePattern);
 
-            document.getElementById("result").value =
+            resultBox.value =
                 `高斯投影反算结果(${zonePattern})
 
 经度: ${lng}
@@ -587,6 +595,11 @@ Y: ${y}
 
 参考椭球： ${ellipPattern}
 精度：0.0001秒`;
+
+            resultBox.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
         }
     }
 
@@ -594,6 +607,7 @@ Y: ${y}
         let x = document.getElementById("x").valueAsNumber;
         let y = document.getElementById("y").valueAsNumber;
         let demesticMap = document.getElementById("map").value;
+        const resultBox = document.getElementById("result");
 
         if (Number.isNaN(x) || Number.isNaN(y)) {
             alert("请输入X和Y值");
@@ -617,6 +631,11 @@ Y: ${y}
 
 参考椭球： ${ellipPattern}
 精度：0.0001秒`;
+
+            resultBox.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
         }
     }
 
