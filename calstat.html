@@ -99,6 +99,7 @@
         }
 
         .day {
+            flex: 1;
             padding: 10px 0;
             cursor: pointer;
             border-radius: 6px;
@@ -144,6 +145,42 @@
         .day.hide {
             visibility: hidden;
             pointer-events: none;
+        }
+
+        .day::after {
+            content: '';
+            position: absolute;
+            bottom: 0px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            /* 小字展示 */
+            font-weight: bold;
+            line-height: 1;
+            /* 默认不带背景色 */
+            background: transparent;
+        }
+
+        /* 公休日样式：默认蓝色 */
+        .day.holiday::after {
+            content: '休';
+            color: #3b82f6;
+        }
+
+        /* 周末班样式：默认紫色 */
+        .day.weekend-work::after {
+            content: '班';
+            color: #7c3aed;
+        }
+
+        /* 公休日选中：变为醒目的红色，与选中背景形成对比 */
+        .day.sel.holiday::after {
+            color: #ef4444;
+        }
+
+        /* 周末班选中：变为明亮的橙色，与公休日选中明显区分 */
+        .day.sel.weekend-work::after {
+            color: #f59e0b;
         }
 
         .toggle-btn {
@@ -664,6 +701,28 @@
     </div>
 
     <script>
+        // --- 工具函数：将日期字符串或对象标准化为 YYYY-MM-DD 格式 ---
+        function formatDate(dateInput) {
+            let date;
+            if (typeof dateInput === 'string') {
+                // 处理 "YYYY/MM/DD" 或 "YYYY-MM-DD" 等常见字符串
+                date = new Date(dateInput.replace(/-/g, '/'));
+            } else if (dateInput instanceof Date) {
+                date = dateInput;
+            } else {
+                // 如果格式无法解析，返回 null
+                return null;
+            }
+
+            // 检查是否为有效日期
+            if (isNaN(date.getTime())) return null;
+
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
         const calGrid = document.getElementById('calGrid');
         const calScroll = document.getElementById('calScroll');
         let selected = new Set();
@@ -754,6 +813,10 @@
                 // 选中状态
                 if (selected.has(ds)) cell.classList.add('sel');
 
+                // 【核心新增】：添加公休日和周末班的样式类
+                if (holidays.has(ds)) cell.classList.add('holiday');
+                if (weekendWorkdays.has(ds)) cell.classList.add('weekend-work');
+
                 // 拖拽事件
                 cell.onmousedown = (e) => {
                     e.preventDefault();
@@ -774,7 +837,6 @@
                 cur.setDate(cur.getDate() + 1);
             }
 
-            // 【核心修复2】：将今天精准定位到画面中间
             // 使用 setTimeout 确保 DOM 完全渲染后再执行滚动
             setTimeout(() => {
                 if (todayCell) {
@@ -961,8 +1023,16 @@
                     holidays.clear();
                     weekendWorkdays.clear();
 
-                    data.holidays.forEach(h => holidays.add(h));
-                    data.weekend_workdays.forEach(w => weekendWorkdays.add(w));
+                    // 【核心修改】：使用格式化函数处理所有日期
+                    data.holidays.forEach(h => {
+                        const formatted = formatDate(h);
+                        if (formatted) holidays.add(formatted);
+                    });
+
+                    data.weekend_workdays.forEach(w => {
+                        const formatted = formatDate(w);
+                        if (formatted) weekendWorkdays.add(formatted);
+                    });
 
                     // 【核心修改】：计算真正的公休天数（剔除周六和周日）
                     let realHolidays = 0;
@@ -977,6 +1047,8 @@
 
                     statusEl.textContent = `✅ 解析成功！工作日公休: ${realHolidays} 天 | 周末班: ${weekendWorkdays.size} 天`;
                     statusEl.style.color = '#10b981';
+
+                    renderCal(); // 重新渲染日历，应用新的“休”和“班”样式
                     recalc();
 
                 } catch (err) {
