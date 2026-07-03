@@ -71,18 +71,16 @@
             padding: 10px 10px 5px;
             border-bottom: 1px solid var(--border);
             white-space: nowrap;
+            /* overflow-y: auto;
+            scrollbar-gutter: stable; */
         }
 
         .cal-scroll {
             flex: 1;
             overflow-y: auto;
             padding: 10px;
+            /* scrollbar-gutter: stable; */
 
-            /* 【Firefox 滚动条美化】 */
-            scrollbar-width: thin;
-            /* 设置为细滚动条 */
-            scrollbar-color: #d1d5db #f9fafb;
-            /* 滑块颜色 轨道颜色 */
         }
 
         .cal-scroll::-webkit-scrollbar {
@@ -98,7 +96,6 @@
             border-radius: 3px;
         }
 
-
         .grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -106,7 +103,6 @@
         }
 
         .day {
-            flex: 1;
             padding: 10px 0;
             cursor: pointer;
             border-radius: 6px;
@@ -157,7 +153,8 @@
         .day::after {
             content: '';
             position: absolute;
-            bottom: 0px;
+            bottom: 2px;
+            /* 稍微增加底部距离 */
             left: 50%;
             transform: translateX(-50%);
             font-size: 10px;
@@ -177,7 +174,7 @@
         /* 周末班样式：默认紫色 */
         .day.weekend-work::after {
             content: '班';
-            color: #7c3aed;
+            color: #a87bf5;
         }
 
         /* 公休日选中：变为醒目的红色，与选中背景形成对比 */
@@ -196,8 +193,8 @@
             left: 350px;
             transform: translateY(-50%);
             z-index: 10;
-            width: 24px;
-            height: 48px;
+            width: 10px;
+            height: 60px;
             background: var(--card);
             border: 1px solid var(--border);
             border-left: none;
@@ -206,7 +203,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 8px;
             color: #6b7280;
             transition: left 0.3s ease, background 0.2s;
             box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
@@ -295,10 +292,60 @@
             border-radius: 6px;
             font-size: 13px;
             outline: none;
+            /* transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease; */
         }
 
         input:focus {
             border-color: var(--primary);
+        }
+
+        /* 输入框错误状态样式 */
+        .input-error {
+            border-color: rgba(230, 40, 30, 0.6);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+            /* transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease; */
+            background-color: #fee2e2;
+        }
+
+        /* 透明度闪烁（呼吸灯效果） */
+        @keyframes errorPulse {
+
+            0%,
+            70% {
+                border: 1px solid var(--border);
+                box-shadow: none;
+                background-color: var(--bg);
+            }
+
+            30%,
+            100% {
+                border-color: rgba(230, 40, 30, 0.4);
+                box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.4);
+                background-color: rgba(254, 226, 226, 1);
+            }
+
+
+        }
+
+        /* 轻微左右抖动（更醒目的震动效果） */
+        @keyframes errorShake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-2px);
+            }
+
+            75% {
+                transform: translateX(2px);
+            }
+        }
+
+        .error-flash {
+            animation: errorPulse 0.6s ease-in-out 1 forwards;
         }
 
         .btn {
@@ -333,19 +380,6 @@
             background: #fee2e2;
             border-color: #ef4444;
             color: #ef4444;
-        }
-
-        .error-tip {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            font-size: 11px;
-            color: #ef4444;
-            margin-top: 4px;
-            white-space: nowrap;
-            display: none;
-            opacity: 0;
-            transition: opacity 0.3s;
         }
 
         .tbl {
@@ -415,9 +449,9 @@
             text-align: center;
         }
 
-        .special-sess-row input[type="date"] {
+        /* .special-sess-row div {
             flex: 1;
-        }
+        } */
 
         .batch-row .btn-apply {
             padding: 6px 12px;
@@ -596,6 +630,8 @@
                 max-width: 100%;
             }
         }
+
+        
     </style>
 </head>
 
@@ -606,7 +642,7 @@
 
         <div class="cal-panel">
             <div class="cal-header">
-                <span>🗓️ 连续日历视图</span>
+                <span>🗓️ 日历</span>
                 <button class="btn-ghost mobile-collapse-btn" onclick="toggleCal()"
                     style="font-size:11px; padding:2px 8px; border:none; color:#6b7280;">收起 ▲</button>
             </div>
@@ -628,11 +664,14 @@
             <button class="mobile-expand-btn" id="mobileExpandBtn" onclick="toggleCal()">🗓️ 展开日历</button>
 
             <div class="top-bar">
-                <div class="grp"><label>开始日期</label><input type="date" id="startDate">
-                    <div class="error-tip" id="startErr">请选择开始日期</div>
+                <div class="grp">
+                    <label>开始日期</label>
+                    <input type="date" id="startDate">
+
                 </div>
-                <div class="grp"><label>结束日期</label><input type="date" id="endDate">
-                    <div class="error-tip" id="endErr">请选择结束日期</div>
+                <div class="grp">
+                    <label>结束日期</label>
+                    <input type="date" id="endDate">
                 </div>
                 <button class="btn btn-p" onclick="calcRange()">生成区间</button>
                 <button class="btn btn-d" onclick="clearAll()">全部清除</button>
@@ -676,8 +715,10 @@
 
                 <div class="special-sess-row">
                     <label>特殊场次:</label>
-                    <input type="date" id="specialDateInput">
-                    <input type="number" id="specialSessInput" value="1" min="0">
+                    <div class="date-input-wrapper">
+                        <input type="date" id="specialDateInput">
+                    </div>
+                    <input type="number" id="specialSessInput" value="1" min="1">
                     <button class="btn btn-add" onclick="addSpecialSess()">添加</button>
                 </div>
                 <div class="special-list" id="specialList"></div>
@@ -716,6 +757,18 @@
     </div>
 
     <script>
+        const calGrid = document.getElementById('calGrid');
+        const calScroll = document.getElementById('calScroll');
+        let selected = new Set();
+        let holidays = new Set();
+        let weekendWorkdays = new Set();
+        const specialSessMap = new Map();
+        let isDragging = false, dragStart = null, dragWasSel = false, lastHover = null;
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+
         // --- 工具函数：将日期字符串或对象标准化为 YYYY-MM-DD 格式 ---
         function formatDate(dateInput) {
             let date;
@@ -737,16 +790,6 @@
             const d = String(date.getDate()).padStart(2, '0');
             return `${y}-${m}-${d}`;
         }
-
-        const calGrid = document.getElementById('calGrid');
-        const calScroll = document.getElementById('calScroll');
-        let selected = new Set();
-        let holidays = new Set();
-        let weekendWorkdays = new Set();
-        const specialSessMap = new Map();
-        let isDragging = false, dragStart = null, dragWasSel = false, lastHover = null;
-        const today = new Date();
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
         function toggleCal() {
             const app = document.getElementById('app');
@@ -840,6 +883,7 @@
                     lastHover = ds;
                     dragWasSel = cell.classList.contains('sel');
                     updateDrag(ds);
+                    hideAllDateInputError();
                 };
                 cell.onmouseover = () => {
                     if (isDragging) {
@@ -852,6 +896,7 @@
                 cur.setDate(cur.getDate() + 1);
             }
 
+            // 【核心修复2】：将今天精准定位到画面中间
             // 使用 setTimeout 确保 DOM 完全渲染后再执行滚动
             setTimeout(() => {
                 if (todayCell) {
@@ -872,29 +917,60 @@
         };
 
         // 错误提示处理
-        function hideErrors() {
-            document.getElementById('startErr').style.display = 'none';
-            document.getElementById('endErr').style.display = 'none';
+        function showDateInputError(id) {
+            hideAllDateInputError();
+            const input = document.getElementById(id);
+            if (!input) return;
+            void input.offsetWidth;
+            input.classList.add('error-flash');
         }
-        function showError(id, msg) {
-            const el = document.getElementById(id);
-            el.textContent = msg;
-            el.style.display = 'block';
-            requestAnimationFrame(() => el.style.opacity = '1');
-            clearTimeout(el.timer);
-            el.timer = setTimeout(() => {
-                el.style.opacity = '0';
-                setTimeout(() => el.style.display = 'none', 300);
-            }, 2000);
+
+        function hideAllDateInputError() {
+            document.querySelectorAll('input[type="date"]').forEach(input => {
+                input.classList.remove('error-flash');
+            });
         }
+
+        // 监听所有日期输入框的聚焦事件
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInputs = document.querySelectorAll('input'); 
+            dateInputs.forEach(input => {
+                input.addEventListener('focus', () => {
+                    hideAllDateInputError()
+                    input.classList.remove('error-flash');
+                });
+            });
+        });
+
+        startDate.addEventListener('change', ()=>{
+            if(startDate.value) {
+                endDate.setAttribute('min', startDate.value);
+                if (startDate.value > endDate.value) endDate.value = '';
+            }
+            else endDate.removeAttribute('min');
+        });
 
         // 区间生成（追加模式）
         function calcRange() {
-            hideErrors();
-            const s = document.getElementById('startDate').value, e = document.getElementById('endDate').value;
-            if (!s) { showError('startErr', '请选择开始日期'); return; }
-            if (!e) { showError('endErr', '请选择结束日期'); return; }
-            if (s > e) { showError('endErr', '结束不能早于开始'); return; }
+            const s = startDate.value
+            const e = endDate.value;
+            if (!s) {
+                showDateInputError('startDate');
+                document.getElementById('status').textContent = '⚠️ 请输入开始日期';
+                return;
+            }
+
+            if (!e) {
+                showDateInputError('endDate');
+                document.getElementById('status').textContent = '⚠️ 请输入结束日期';
+                return;
+            }
+
+            // if (s > e) {
+            //     showDateInputError('endDate');
+            //     document.getElementById('status').textContent = '⚠️ 结束日期不能早于开始日期';
+            //     return;
+            // }
 
             let cur = new Date(s);
             while (cur <= new Date(e)) {
@@ -958,7 +1034,8 @@
 
             // 5. 更新底部的总场次显示
             document.getElementById('grandTotalBottom').textContent = totalSess;
-            document.getElementById('status').textContent = `工作日: ${workdays} | 公休日: ${holis} | 周末班: ${weekendWork}`;
+            document.getElementById('status').textContent = '统计完成';
+            // document.getElementById('status').textContent = `工作日: ${workdays} | 公休日: ${holis} | 周末班: ${weekendWork}`;
         }
 
         // 监听场次输入
@@ -980,6 +1057,7 @@
             const sessVal = parseFloat(document.getElementById('specialSessInput').value) || 0;
 
             if (!dateVal) {
+                showDateInputError('specialDateInput');
                 document.getElementById('status').textContent = '⚠️ 请先选择需要设置特殊场次的日期';
                 return;
             }
@@ -1041,12 +1119,14 @@
                     // 【核心修改】：使用格式化函数处理所有日期
                     data.holidays.forEach(h => {
                         const formatted = formatDate(h);
-                        if (formatted) holidays.add(formatted);
+                        if (formatted) holidays.add(formatted)
+                        else throw new Error(`休息日格式错误：${h}`);
                     });
 
                     data.weekend_workdays.forEach(w => {
                         const formatted = formatDate(w);
-                        if (formatted) weekendWorkdays.add(formatted);
+                        if (formatted) weekendWorkdays.add(formatted)
+                        else throw new Error(`补班日格式错误：${w}`);
                     });
 
                     // 【核心修改】：计算真正的公休天数（剔除周六和周日）
@@ -1062,8 +1142,7 @@
 
                     statusEl.textContent = `✅ 解析成功！工作日公休: ${realHolidays} 天 | 周末班: ${weekendWorkdays.size} 天`;
                     statusEl.style.color = '#10b981';
-
-                    renderCal(); // 重新渲染日历，应用新的“休”和“班”样式
+                    renderCal();
                     recalc();
 
                 } catch (err) {
@@ -1087,6 +1166,7 @@
             weekendWorkdays.clear();
             document.getElementById('jsonFile').value = '';
             document.getElementById('fileStatus').textContent = '';
+            renderCal();
             recalc();
         }
 
@@ -1094,7 +1174,8 @@
         function clearSelected() {
             selected.clear();
             syncUI();
-            hideErrors();
+            renderCal()
+            hideAllDateInputError();
             document.getElementById('status').textContent = '已清除所有选中的日期区间';
         }
 
@@ -1118,12 +1199,14 @@
             clearJson();
             renderCal();
             syncUI();
-            hideErrors();
+            hideAllDateInputError();
             document.getElementById('status').textContent = '已清空所有数据';
         }
 
         // 初始化
         renderCal();
+
+
     </script>
 </body>
 
