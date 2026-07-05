@@ -82,6 +82,9 @@
             scrollbar-width: none;
             scrollbar-color: #d1d5db #f9fafb;
             /* scrollbar-gutter: stable; */
+
+            touch-action: none;
+            /* 【核心】告诉浏览器：不要在这里处理默认的触摸滚动 */
         }
 
         .cal-scroll::-webkit-scrollbar {
@@ -612,16 +615,20 @@
             }
 
             /* 收起状态下的样式 */
-            .app.collapsed .cal-panel {
+            .app.mobile-collapsed .cal-panel {
                 height: 0 !important;
                 border-bottom: none;
             }
 
-            .app.collapsed .mobile-expand-btn {
+            .app.mobile-collapsed .mobile-expand-btn {
                 display: block;
             }
 
             .mobile-collapse-btn {
+                font-size: 11px;
+                padding: 2px 8px;
+                border: none;
+                color: #6b7280;
                 display: inline;
             }
 
@@ -630,22 +637,34 @@
                 width: 100%;
                 max-width: 100%;
             }
-        }
 
-        
+            /* 1. 禁止日历单元格的文字被选中（防止滑动时出现蓝色高亮） */
+            .day,
+            .calendar-grid {
+                -webkit-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
+            }
+
+            /* 2. 强制输入框字号为 16px，防止 iOS 自动放大页面 */
+            input[type="date"],
+            input[type="number"] {
+                font-size: 16px !important;
+                -webkit-text-size-adjust: 100%;
+            }
+        }
     </style>
 </head>
 
 <body>
 
-    <div class="app" id="app">
+    <div class="app mobile-collapsed" id="app">
         <button class="toggle-btn" id="toggleBtn" title="展开/收起日历">◀</button>
 
         <div class="cal-panel">
             <div class="cal-header">
                 <span>🗓️ 日历</span>
-                <button class="btn-ghost mobile-collapse-btn" onclick="toggleCal()"
-                    style="font-size:11px; padding:2px 8px; border:none; color:#6b7280;">收起 ▲</button>
+                <button class="btn-ghost mobile-collapse-btn" id="mobileCollapseBtn">收起 ▲</button>
             </div>
             <div class="weekdays">
                 <div>一</div>
@@ -662,7 +681,7 @@
         </div>
 
         <div class="right-panel">
-            <button class="mobile-expand-btn" id="mobileExpandBtn" onclick="toggleCal()">🗓️ 展开日历</button>
+            <button class="mobile-expand-btn" id="mobileExpandBtn">🗓️ 展开日历</button>
 
             <div class="top-bar">
                 <div class="grp">
@@ -795,15 +814,20 @@
         function toggleCal() {
             const app = document.getElementById('app');
             const toggleBtn = document.getElementById('toggleBtn');
-            const mobileExpandBtn = document.getElementById('mobileExpandBtn');
-
             app.classList.toggle('collapsed');
             const isCollapsed = app.classList.contains('collapsed');
-
             if (toggleBtn) toggleBtn.innerHTML = isCollapsed ? '▶' : '◀';
-            if (mobileExpandBtn) mobileExpandBtn.textContent = isCollapsed ? '🗓️ 展开日历' : '🗓️ 收起日历';
+        }
+
+        function mobileToggleCal() {
+            const app = document.getElementById('app');
+            app.classList.toggle('mobile-collapsed');
+
+            // if (mobileExpandBtn) mobileExpandBtn.textContent = isCollapsed ? '🗓️ 展开日历' : '🗓️ 收起日历';
         }
         document.getElementById('toggleBtn').addEventListener('click', toggleCal);
+        document.getElementById('mobileExpandBtn').addEventListener('click', mobileToggleCal);
+        document.getElementById('mobileCollapseBtn').addEventListener('click', mobileToggleCal);
 
         const toTime = s => new Date(s).getTime();
         function getRange(s, e) {
@@ -897,7 +921,7 @@
                 cur.setDate(cur.getDate() + 1);
             }
 
-            // 【核心修复2】：将今天精准定位到画面中间
+            // 将今天精准定位到画面中间
             // 使用 setTimeout 确保 DOM 完全渲染后再执行滚动
             setTimeout(() => {
                 if (todayCell) {
@@ -917,6 +941,8 @@
             else if (e.clientY > r.bottom - 40) calScroll.scrollTop += 10;
         };
 
+
+
         // 错误提示处理
         function showDateInputError(id) {
             hideAllDateInputError();
@@ -932,19 +958,21 @@
             });
         }
 
-        // 监听所有日期输入框的聚焦事件
+        // 监听所有输入框的聚焦事件
         document.addEventListener('DOMContentLoaded', () => {
-            const dateInputs = document.querySelectorAll('input'); 
+            const dateInputs = document.querySelectorAll('input');
             dateInputs.forEach(input => {
                 input.addEventListener('focus', () => {
-                    hideAllDateInputError()
-                    input.classList.remove('error-flash');
+                    // 清楚错误提示
+                    hideAllDateInputError();
+                    // 输入框获得焦点时全选内容
+                    setTimeout(() => input.select(), 0);
                 });
             });
         });
 
-        startDate.addEventListener('change', ()=>{
-            if(startDate.value) {
+        startDate.addEventListener('change', () => {
+            if (startDate.value) {
                 endDate.setAttribute('min', startDate.value);
                 if (startDate.value > endDate.value) endDate.value = '';
             }
