@@ -71,8 +71,6 @@
             padding: 10px 10px 5px;
             border-bottom: 1px solid var(--border);
             white-space: nowrap;
-            /* overflow-y: auto;
-            scrollbar-gutter: stable; */
         }
 
         .cal-scroll {
@@ -81,7 +79,6 @@
             padding: 10px;
             scrollbar-width: none;
             scrollbar-color: #d1d5db #f9fafb;
-            /* scrollbar-gutter: stable; */
         }
 
         .cal-scroll::-webkit-scrollbar {
@@ -95,6 +92,20 @@
         .cal-scroll::-webkit-scrollbar-thumb {
             background: #d1d5db;
             border-radius: 3px;
+        }
+
+        /* 如果浏览器支持 Firefox 的滚动条属性，说明它是 Firefox，应用专属样式 */
+        @supports (scrollbar-width: thin) {
+            .cal-scroll {
+                scrollbar-width: thin;
+                scrollbar-gutter: stable;
+            }
+
+            .weekdays {
+                overflow-y: auto;
+                scrollbar-gutter: stable;
+                scrollbar-width: thin;
+            }
         }
 
         .grid {
@@ -783,8 +794,8 @@
         let isDragging = false, dragStart = null, dragWasSel = false, lastHover = null;
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        const startDate = document.getElementById('startDate');
-        const endDate = document.getElementById('endDate');
+        const startDateEl = document.getElementById('startDate');
+        const endDateEl = document.getElementById('endDate');
 
         // --- 工具函数：将日期字符串或对象标准化为 YYYY-MM-DD 格式 ---
         function formatDate(dateInput) {
@@ -968,18 +979,18 @@
             });
         });
 
-        startDate.addEventListener('change', () => {
-            if (startDate.value) {
-                endDate.setAttribute('min', startDate.value);
-                if (startDate.value > endDate.value) endDate.value = '';
+        startDateEl.addEventListener('change', () => {
+            if (startDateEl.value) {
+                endDateEl.setAttribute('min', startDateEl.value);
+                if (startDateEl.value > endDateEl.value) endDateEl.value = '';
             }
-            else endDate.removeAttribute('min');
+            else endDateEl.removeAttribute('min');
         });
 
         // 区间生成（追加模式）
         function calcRange() {
-            const s = startDate.value
-            const e = endDate.value;
+            const s = startDateEl.value
+            const e = endDateEl.value;
             if (!s) {
                 showDateInputError('startDate');
                 document.getElementById('status').textContent = '⚠️ 请输入开始日期';
@@ -998,17 +1009,64 @@
             //     return;
             // }
 
+            // let cur = new Date(s);
+            // while (cur <= new Date(e)) {
+            //     selected.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`);
+            //     cur.setDate(cur.getDate() + 1);
+            // }
+
+            // const cs = new Date(new Date(s).getFullYear(), new Date(s).getMonth(), 1);
+            // const ce = new Date(new Date(e).getFullYear(), new Date(e).getMonth() + 1, 0);
+            // renderCal(cs, ce);
+            // syncUI();
+            // document.getElementById('status').textContent = `已追加区间，当前共选中 ${selected.size} 天`;
+
+
+            // 1. 加入选中集合
             let cur = new Date(s);
             while (cur <= new Date(e)) {
                 selected.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`);
                 cur.setDate(cur.getDate() + 1);
             }
 
-            const cs = new Date(new Date(s).getFullYear(), new Date(s).getMonth(), 1);
-            const ce = new Date(new Date(e).getFullYear(), new Date(e).getMonth() + 1, 0);
-            renderCal(cs, ce);
+            const minDateString = [...selected].reduce((min, current) =>
+                current < min ? current : min
+            );
+            const maxDateString = [...selected].reduce((max, current) =>
+                current > max ? current : max
+            );
+
+            const minDateObj = new Date(minDateString);
+            const maxDateObj = new Date(maxDateString);
+
+            // 2. 计算天数差
+            const timeDiff = maxDateObj.getTime() - minDateObj.getTime();
+            const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+            // 3. 定义渲染范围变量
+            let renderStart, renderEnd;
+
+            if (dayDiff >= 365) {
+                // 超过一年：只显示开始日期往后一年                
+                renderStart = new Date(minDateObj.getFullYear(), minDateObj.getMonth(), 1);
+                renderEnd = new Date(minDateObj.getFullYear(), minDateObj.getMonth() + 12, 0);
+
+                // 提示用户
+                document.getElementById('status').textContent =
+                    `📅 选中日期跨度达 ${dayDiff + 1} 天，当前只显示一年的日历视图`;
+            } else {
+                // 不超过一年：正常显示完整区间
+                renderStart = new Date(minDateObj.getFullYear(), minDateObj.getMonth() - 1, 1);
+                renderEnd = new Date(maxDateObj.getFullYear(), maxDateObj.getMonth() + 2, 0);
+
+                document.getElementById('status').textContent = `已追加区间，当前共选中 ${selected.size} 天`;
+            }
+
+            // 4. 执行渲染
+            renderCal(renderStart, renderEnd);
+
+            // 5.同步选中状态
             syncUI();
-            document.getElementById('status').textContent = `已追加区间，当前共选中 ${selected.size} 天`;
         }
 
         // 核心计算逻辑
@@ -1021,7 +1079,7 @@
             const counts = [0, 0, 0, 0, 0, 0, 0];
             let workdays = 0, holis = 0, weekendWork = 0;
 
-            // 【核心修复2】：将“特殊场次”的日期与“日历选中”的日期合并，确保只设了特殊场次也能被统计到底部四项中
+            // 将“特殊场次”的日期与“日历选中”的日期合并，确保只设了特殊场次也能被统计到底部四项中
             const allDatesToCalc = new Set([...selected, ...specialSessMap.keys()]);
 
             allDatesToCalc.forEach(ds => {
@@ -1060,7 +1118,7 @@
 
             // 5. 更新底部的总场次显示
             document.getElementById('grandTotalBottom').textContent = totalSess;
-            document.getElementById('status').textContent = '统计完成';
+            // document.getElementById('status').textContent = '统计完成';
             // document.getElementById('status').textContent = `工作日: ${workdays} | 公休日: ${holis} | 周末班: ${weekendWork}`;
         }
 
@@ -1094,7 +1152,7 @@
             document.getElementById('status').textContent = `已为 ${dateVal} 设置特殊场次: ${sessVal}`;
         }
 
-        // 【核心修复3】：渲染特殊场次列表，修复无法删除的问题
+        // 渲染特殊场次列表，修复无法删除的问题
         function renderSpecialList() {
             const container = document.getElementById('specialList');
             container.innerHTML = '';
@@ -1142,7 +1200,7 @@
                     holidays.clear();
                     weekendWorkdays.clear();
 
-                    // 【核心修改】：使用格式化函数处理所有日期
+                    // 使用格式化函数处理所有日期
                     data.holidays.forEach(h => {
                         const formatted = formatDate(h);
                         if (formatted) holidays.add(formatted)
@@ -1155,7 +1213,7 @@
                         else throw new Error(`补班日格式错误：${w}`);
                     });
 
-                    // 【核心修改】：计算真正的公休天数（剔除周六和周日）
+                    // 计算真正的公休天数（剔除周六和周日）
                     let realHolidays = 0;
                     holidays.forEach(dateStr => {
                         // 将 "YYYY-MM-DD" 字符串转换为 Date 对象，并获取星期几
@@ -1215,7 +1273,7 @@
             document.getElementById('startDate').value = '';
             document.getElementById('endDate').value = '';
 
-            // 2. 【本次修复】：清空特殊场次的日期选择控件和场次输入控件
+            // 2. 清空特殊场次的日期选择控件和场次输入控件
             document.getElementById('specialDateInput').value = '';
             document.getElementById('specialSessInput').value = '1'; // 场次清空后，默认重置为1
 
