@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日历场次计算器</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --bg: #f3f4f6;
+            --card: #fff;
+            --border: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, sans-serif;
+            background: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #1f2937;
+            /* min-width: 1000px; */
+        }
+
+        .app {
+            display: flex;
+            height: 600px;
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .cal-panel {
+            width: 350px;
+            min-width: 0;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            background: #fafafa;
+            transition: width 0.3s ease, height 0.3s ease;
+            overflow: hidden;
+        }
+
+        .cal-header {
+            padding: 15px;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: 600;
+            padding: 10px 10px 5px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .cal-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            scrollbar-width: none;
+            scrollbar-color: #d1d5db #f9fafb;
+        }
+
+        .cal-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .cal-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .cal-scroll::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+
+        /* 如果浏览器支持 Firefox 的滚动条属性，说明它是 Firefox，应用专属样式 */
+        @supports (scrollbar-width: thin) {
+            .cal-scroll {
+                scrollbar-width: thin;
+                scrollbar-gutter: stable;
+            }
+
+            .weekdays {
+                overflow-y: auto;
+                scrollbar-gutter: stable;
+                scrollbar-width: thin;
+            }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+        }
+
+        .day {
+            padding: 10px 0;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: center;
+            transition: 0.2s;
+            user-select: none;
+            position: relative;
+            touch-action: pan-y pinch-zoom;
+        }
+
+        .day:hover {
+            background: #e5e7eb;
+        }
+
+        .day.sel {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .day.drag {
+            background: #93c5fd;
+            color: #fff;
+        }
+
+        .day.pressing {
+            background: #d1d5db !important;
+            transition: background 0.1s;
+        }
+
+        .day.today {
+            border: 1px solid var(--primary);
+        }
+
+        .day.ph::before {
+            content: attr(data-m);
+            position: absolute;
+            top: -2px;
+            right: 2px;
+            font-size: 9px;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .day.sel.ph::before {
+            color: #fff;
+        }
+
+        .day.hide {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .day::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            /* 稍微增加底部距离 */
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            /* 小字展示 */
+            font-weight: bold;
+            line-height: 1;
+            /* 默认不带背景色 */
+            background: transparent;
+        }
+
+        /* 公休日样式：默认蓝色 */
+        .day.holiday::after {
+            content: '休';
+            color: #3b82f6;
+        }
+
+        /* 周末班样式：默认紫色 */
+        .day.weekend-work::after {
+            content: '班';
+            color: #a87bf5;
+        }
+
+        /* 公休日选中：变为醒目的红色，与选中背景形成对比 */
+        .day.sel.holiday::after {
+            color: #ef4444;
+        }
+
+        /* 周末班选中：变为明亮的橙色，与公休日选中明显区分 */
+        .day.sel.weekend-work::after {
+            color: #f59e0b;
+        }
+
+        .toggle-btn {
+            position: absolute;
+            top: 50%;
+            left: 350px;
+            transform: translateY(-50%);
+            z-index: 10;
+            width: 10px;
+            height: 60px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-left: none;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: #6b7280;
+            transition: left 0.3s ease, background 0.2s;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .toggle-btn:hover {
+            background: #f3f4f6;
+            color: var(--primary);
+        }
+
+        /* 收起状态下的整体与面板样式 */
+        .app.collapsed {
+            width: 100%;
+            max-width: 600px;
+            /* 限制收起时的最大宽度不超过600 */
+        }
+
+        .app.collapsed .cal-panel {
+            width: 0;
+            border-right: none;
+        }
+
+        .app.collapsed .toggle-btn {
+            left: 0;
+        }
+
+        .mobile-expand-btn {
+            display: none;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .mobile-expand-btn:hover {
+            opacity: 0.9;
+        }
+
+        .mobile-collapse-btn {
+            display: none;
+        }
+
+        .right-panel {
+            flex: 1;
+            padding: 20px;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            transition: padding 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .top-bar {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            flex-wrap: wrap;
+        }
+
+        .grp {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+        }
+
+        .grp label {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        input {
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+            /* transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease; */
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        /* 输入框错误状态样式 */
+        .input-error {
+            border-color: rgba(230, 40, 30, 0.6);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+            /* transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease; */
+            background-color: #fee2e2;
+        }
+
+        /* 透明度闪烁（呼吸灯效果） */
+        @keyframes errorPulse {
+
+            0%,
+            70% {
+                border: 1px solid var(--border);
+                box-shadow: none;
+                background-color: var(--bg);
+            }
+
+            30%,
+            100% {
+                border-color: rgba(230, 40, 30, 0.4);
+                box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.4);
+                background-color: rgba(254, 226, 226, 1);
+            }
+
+
+        }
+
+        /* 轻微左右抖动（更醒目的震动效果） */
+        @keyframes errorShake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-2px);
+            }
+
+            75% {
+                transform: translateX(2px);
+            }
+        }
+
+        .error-flash {
+            animation: errorPulse 0.6s ease-in-out 1 forwards;
+        }
+
+        .btn {
+            padding: 7px 12px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        .btn-p {
+            background: var(--primary);
+        }
+
+        .btn-d {
+            background: #ef4444;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #6b7280;
+            padding: 6px 10px;
+            font-size: 14px;
+            line-height: 1;
+        }
+
+        .btn-ghost:hover {
+            background: #fee2e2;
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .tbl {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 60px repeat(7, 1fr);
+            gap: 4px;
+            align-items: center;
+        }
+
+        .hdr div {
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .lbl {
+            font-size: 12px;
+            font-weight: bold;
+            text-align: right;
+            padding-right: 5px;
+        }
+
+        .row input {
+            width: 100%;
+            text-align: center;
+            padding: 5px;
+            font-size: 13px;
+            background: #f9fafb;
+            border: 1px solid transparent;
+            /* min-width: 40px; */
+        }
+
+        .row input[readonly] {
+            pointer-events: none;
+            border: none;
+            font-weight: bold;
+        }
+
+        .batch-row,
+        .special-sess-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            margin-top: -4px;
+        }
+
+        .batch-row label,
+        .special-sess-row label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .batch-row input,
+        .special-sess-row input[type="number"] {
+            width: 60px;
+            text-align: center;
+        }
+
+        /* .special-sess-row div {
+            flex: 1;
+        } */
+
+        .batch-row .btn-apply {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #10b981;
+        }
+
+        .batch-row .btn-apply:hover {
+            background: #059669;
+        }
+
+        .special-sess-row .btn-add {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #f59e0b;
+            color: #fff;
+        }
+
+        .special-sess-row .btn-add:hover {
+            background: #d97706;
+        }
+
+        .special-list {
+            font-size: 11px;
+            color: #4b5563;
+            max-height: 60px;
+            overflow-y: auto;
+            margin-top: 4px;
+            padding-left: 5px;
+            border-left: 2px solid #e5e7eb;
+        }
+
+        .special-list span {
+            display: inline-block;
+            background: #f3f4f6;
+            border-radius: 4px;
+            padding: 2px 6px;
+            margin: 2px;
+            cursor: pointer;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+
+        .special-list span:hover {
+            background: #fee2e2;
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .bottom-stats {
+            display: flex;
+            gap: 12px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--border);
+        }
+
+        .bottom-stats .stat-card {
+            flex: 1;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: #fafafa;
+        }
+
+        .bottom-stats .stat-card label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+        }
+
+        .bottom-stats .stat-card .num {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1f2937;
+        }
+
+        .bottom-stats .stat-card.workdays .num {
+            color: #059669;
+        }
+
+        .bottom-stats .stat-card.holidays .num {
+            color: #d97706;
+        }
+
+        .bottom-stats .stat-card.weekend-work .num {
+            color: #7c3aed;
+        }
+
+        .bottom-stats .stat-card.total-days .num {
+            color: var(--primary);
+        }
+
+        .bottom-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 15px;
+        }
+
+        .total {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .file-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: #6b7280;
+            flex-wrap: wrap;
+        }
+
+        .file-status {
+            font-size: 12px;
+            color: #10b981;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                min-width: 100%;
+                align-items: flex-start;
+                padding: 0;
+            }
+
+            /* 整体容器在窄屏下撑满屏幕，取消圆角和阴影 */
+            .app {
+                flex-direction: column;
+                width: 100%;
+                max-width: 100%;
+                /* 覆盖之前的600px限制，窄屏下必须撑满 */
+                height: auto;
+                min-height: 100vh;
+                min-width: 100%;
+                border-radius: 0;
+                box-shadow: none;
+            }
+
+            /* 隐藏展开/收起按钮 */
+            .toggle-btn {
+                display: none !important;
+            }
+
+            /* 【核心修改】：日历面板宽度严格等于100%，与下方右面板保持一致 */
+            .cal-panel {
+                width: 100% !important;
+                max-width: 100% !important;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                height: 300px;
+            }
+
+            /* 收起状态下的样式 */
+            .app.mobile-collapsed .cal-panel {
+                height: 0 !important;
+                border-bottom: none;
+            }
+
+            .app.mobile-collapsed .mobile-expand-btn {
+                display: block;
+            }
+
+            .mobile-collapse-btn {
+                font-size: 11px;
+                padding: 2px 8px;
+                border: none;
+                color: #6b7280;
+                display: inline;
+            }
+
+            /* 确保右侧面板在窄屏下也撑满宽度 */
+            .right-panel {
+                width: 100%;
+                max-width: 100%;
+            }
+
+            /* 1. 禁止日历单元格的文字被选中（防止滑动时出现蓝色高亮） */
+            .day,
+            .calendar-grid {
+                -webkit-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
+            }
+
+            /* 2. 强制输入框字号为 16px，防止 iOS 自动放大页面 */
+            input[type="date"],
+            input[type="number"] {
+                font-size: 16px !important;
+                -webkit-text-size-adjust: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app mobile-collapsed" id="app">
+        <button class="toggle-btn" id="toggleBtn" title="展开/收起日历">◀</button>
+
+        <div class="cal-panel">
+            <div class="cal-header">
+                <span>🗓️ 日历</span>
+                <button class="btn-ghost mobile-collapse-btn" id="mobileCollapseBtn">收起 ▲</button>
+            </div>
+            <div class="weekdays">
+                <div>一</div>
+                <div>二</div>
+                <div>三</div>
+                <div>四</div>
+                <div>五</div>
+                <div>六</div>
+                <div>日</div>
+            </div>
+            <div class="cal-scroll" id="calScroll">
+                <div class="grid" id="calGrid"></div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <button class="mobile-expand-btn" id="mobileExpandBtn">🗓️ 展开日历</button>
+
+            <div class="top-bar">
+                <div class="grp">
+                    <label>开始日期</label>
+                    <input type="date" id="startDate">
+
+                </div>
+                <div class="grp">
+                    <label>结束日期</label>
+                    <input type="date" id="endDate">
+                </div>
+                <button class="btn btn-p" onclick="calcRange()">生成区间</button>
+                <button class="btn btn-d" onclick="clearAll()">全部清除</button>
+                <button class="btn btn-ghost" onclick="clearSelected()"
+                    style="border-color:#ef4444; color:#ef4444;">清除选中</button>
+            </div>
+
+            <div class="tbl">
+                <div class="row hdr">
+                    <div></div>
+                    <div>周一</div>
+                    <div>周二</div>
+                    <div>周三</div>
+                    <div>周四</div>
+                    <div>周五</div>
+                    <div>周六</div>
+                    <div>周日</div>
+                </div>
+                <div class="row" id="daysRow">
+                    <div class="lbl">天数</div>
+                    <input type="number" data-d="1" value="0" readonly>
+                    <input type="number" data-d="2" value="0" readonly>
+                    <input type="number" data-d="3" value="0" readonly>
+                    <input type="number" data-d="4" value="0" readonly>
+                    <input type="number" data-d="5" value="0" readonly>
+                    <input type="number" data-d="6" value="0" readonly>
+                    <input type="number" data-d="0" value="0" readonly>
+                </div>
+                <div class="row" id="sessRow">
+                    <div class="lbl">单日场次</div>
+                    <input type="number" data-s="1" value="1" min="0"><input type="number" data-s="2" value="1" min="0">
+                    <input type="number" data-s="3" value="1" min="0"><input type="number" data-s="4" value="1" min="0">
+                    <input type="number" data-s="5" value="1" min="0"><input type="number" data-s="6" value="1" min="0">
+                    <input type="number" data-s="0" value="1" min="0">
+                </div>
+                <div class="batch-row">
+                    <label>一键批量:</label>
+                    <input type="number" id="batchSessInput" value="1" min="0" placeholder="场次">
+                    <button class="btn btn-apply" onclick="applyBatchSess()">应用到全部</button>
+                </div>
+
+                <div class="special-sess-row">
+                    <label>特殊场次:</label>
+                    <div class="date-input-wrapper">
+                        <input type="date" id="specialDateInput">
+                    </div>
+                    <input type="number" id="specialSessInput" value="1" min="1">
+                    <button class="btn btn-add" onclick="addSpecialSess()">添加</button>
+                </div>
+                <div class="special-list" id="specialList"></div>
+            </div>
+
+            <div class="bottom-stats">
+                <div class="stat-card workdays"><label>工作日</label>
+                    <div class="num" id="bottomWorkdays">0</div>
+                </div>
+                <div class="stat-card holidays"><label>公休日</label>
+                    <div class="num" id="bottomHolidays">0</div>
+                </div>
+                <div class="stat-card weekend-work"><label>周末班</label>
+                    <div class="num" id="bottomWeekendWork">0</div>
+                </div>
+                <div class="stat-card total-days"><label>总天数</label>
+                    <div class="num" id="bottomTotalDays">0</div>
+                </div>
+            </div>
+
+            <div class="file-area">
+                <span>上传排班JSON:</span>
+                <input type="file" id="jsonFile" accept=".json" style="font-size:12px;">
+                <button class="btn-ghost" onclick="clearJson()" title="清除已上传的文件配置">×</button>
+                <span class="file-status" id="fileStatus"></span>
+            </div>
+
+            <div class="bottom-bar">
+                <div style="font-size:13px; color:#6b7280;" id="status">就绪</div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:14px; color:#6b7280;">总场次：</span>
+                    <div class="total" id="grandTotalBottom">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const calGrid = document.getElementById('calGrid');
+        const calScroll = document.getElementById('calScroll');
+        let selected = new Set();
+        let holidays = new Set();
+        let weekendWorkdays = new Set();
+        const specialSessMap = new Map();
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const startDateEl = document.getElementById('startDate');
+        const endDateEl = document.getElementById('endDate');
+
+        let isDragging = false;
+        let dragStart = null;
+        let dragWasSel = false;
+        let lastHover = null;
+
+        let pointerMoved = false; // 标记指针是否真的发生了移动
+        let activePointerId = null; // 【新增】记录当前正在拖动的手指/鼠标指针 ID
+        let startPos = { x: 0, y: 0 }; // 记录按下位置
+
+        // --- 工具函数：将日期字符串或对象标准化为 YYYY-MM-DD 格式 ---
+        function formatDate(dateInput) {
+            let date;
+            if (typeof dateInput === 'string') {
+                // 处理 "YYYY/MM/DD" 或 "YYYY-MM-DD" 等常见字符串
+                date = new Date(dateInput.replace(/-/g, '/'));
+            } else if (dateInput instanceof Date) {
+                date = dateInput;
+            } else {
+                // 如果格式无法解析，返回 null
+                return null;
+            }
+
+            // 检查是否为有效日期
+            if (isNaN(date.getTime())) return null;
+
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function toggleCal() {
+            const app = document.getElementById('app');
+            const toggleBtn = document.getElementById('toggleBtn');
+            app.classList.toggle('collapsed');
+            const isCollapsed = app.classList.contains('collapsed');
+            if (toggleBtn) toggleBtn.innerHTML = isCollapsed ? '▶' : '◀';
+        }
+
+        function mobileToggleCal() {
+            const app = document.getElementById('app');
+            app.classList.toggle('mobile-collapsed');
+
+            // if (mobileExpandBtn) mobileExpandBtn.textContent = isCollapsed ? '🗓️ 展开日历' : '🗓️ 收起日历';
+        }
+        document.getElementById('toggleBtn').addEventListener('click', toggleCal);
+        document.getElementById('mobileExpandBtn').addEventListener('click', mobileToggleCal);
+        document.getElementById('mobileCollapseBtn').addEventListener('click', mobileToggleCal);
+
+        const toTime = s => new Date(s).getTime();
+        function getRange(s, e) {
+            let start = new Date(Math.min(toTime(s), toTime(e))), end = new Date(Math.max(toTime(s), toTime(e))), res = [];
+            while (start <= end) {
+                res.push(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`);
+                start.setDate(start.getDate() + 1);
+            }
+            return res;
+        }
+
+        function updateDrag(cur) {
+            document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
+            if (!isDragging || !dragStart) return;
+            getRange(dragStart, cur).forEach(d => {
+                const c = calGrid.querySelector(`.day[data-date="${d}"]`);
+                if (c) c.classList.add('drag');
+            });
+        }
+
+        function commitDrag(end) {
+            if (!isDragging || !dragStart) return;
+
+            const finalEnd = end || lastHover || dragStart;
+            const dates = getRange(dragStart, finalEnd);
+
+            dates.forEach(d => {
+                if (dragWasSel) { selected.delete(d); }
+                else { selected.add(d); }
+            });
+
+            isDragging = false;
+            activePointerId = null;
+            dragStart = null;
+
+            // 清除所有残留样式
+            document.querySelectorAll('.day.drag, .day.pressing').forEach(c => {
+                c.classList.remove('drag', 'pressing');
+            });
+
+            syncUI();
+        }
+
+        function renderCal(cStart, cEnd) {
+            calGrid.innerHTML = '';
+            const start = cStart || new Date(today.getFullYear(), today.getMonth() - 3, 1);
+            const end = cEnd || new Date(today.getFullYear(), today.getMonth() + 6, 0);
+            let cur = new Date(start), lastM = -1;
+
+            // 补齐第一周前面的空白格子
+            const off = cur.getDay() === 0 ? 6 : cur.getDay() - 1;
+            for (let i = 0; i < off; i++) {
+                const d = document.createElement('div');
+                d.className = 'day hide';
+                calGrid.appendChild(d);
+            }
+
+            let todayCell = null; // 记录今天的 DOM 元素
+
+            while (cur <= end) {
+                const y = cur.getFullYear(), m = cur.getMonth(), dt = cur.getDate();
+                const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(dt).padStart(2, '0')}`;
+                const cell = document.createElement('div');
+                cell.className = 'day';
+                cell.textContent = dt;
+                cell.dataset.date = ds;
+
+                // 月份标记
+                if (m !== lastM) {
+                    cell.classList.add('ph');
+                    cell.dataset.m = `${m + 1}月`;
+                    lastM = m;
+                }
+
+                // 【核心修复1】：高亮今天
+                if (ds === todayStr) {
+                    cell.classList.add('today');
+                    todayCell = cell;
+                }
+
+                // 选中状态
+                if (selected.has(ds)) cell.classList.add('sel');
+
+                // 【核心新增】：添加公休日和周末班的样式类
+                if (holidays.has(ds)) cell.classList.add('holiday');
+                if (weekendWorkdays.has(ds)) cell.classList.add('weekend-work');
+
+                // --- 完美兼容版 Pointer Events Start ---
+                cell.onpointerdown = (e) => {
+                    // 1. 捕获指针，防止滑出元素后事件丢失
+                    cell.setPointerCapture(e.pointerId);
+
+                    // 2. 初始化状态（注意：此时 isDragging 为 false，等待移动判定）
+                    activePointerId = e.pointerId;
+                    pointerMoved = false;
+                    isDragging = false;
+                    dragStart = ds;
+                    dragWasSel = selected.has(ds);
+                    lastHover = ds;
+
+                    startPos.x = e.clientX;
+                    startPos.y = e.clientY;
+
+                    cell.classList.add('pressing');
+                };
+
+                cell.onpointermove = (e) => {
+                    // 只处理当前捕获的指针
+                    if (e.pointerId !== activePointerId) return;
+
+                    // 【核心逻辑】：判断是否移动超过 5px 阈值
+                    if (!isDragging) {
+                        const diffX = Math.abs(e.clientX - startPos.x);
+                        const diffY = Math.abs(e.clientY - startPos.y);
+
+                        if (diffX > 5 || diffY > 5) {
+                            // 超过阈值，正式进入拖动模式！
+                            isDragging = true;
+                            pointerMoved = true;
+                            updateDrag(ds); // 初始化高亮
+                        } else {
+                            return; // 未达到阈值，不处理，允许浏览器原生滚动
+                        }
+                    }
+
+                    // 进入拖动模式后，阻止页面滚动，执行日期选择
+                    e.preventDefault();
+
+                    const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+                    const newCell = targetEl?.closest('.day');
+
+                    if (newCell && newCell.dataset.date !== lastHover) {
+                        lastHover = newCell.dataset.date;
+                        updateDrag(lastHover);
+                    }
+                };
+
+                cell.onpointerup = (e) => {
+                    if (e.pointerId !== activePointerId) return;
+
+                    cell.classList.remove('pressing');
+
+                    if (pointerMoved && isDragging) {
+                        // 发生了拖动，提交范围选择
+                        commitDrag(lastHover || dragStart);
+                    } else {
+                        // 【修复点1】：没有发生拖动，执行纯粹的点击变色逻辑
+                        if (selected.has(ds)) {
+                            selected.delete(ds);
+                        } else {
+                            selected.add(ds);
+                        }
+                        syncUI();
+                        hideAllDateInputError();
+                    }
+
+                    // 重置状态
+                    isDragging = false;
+                    activePointerId = null;
+                    pointerMoved = false;
+                };
+
+                cell.onpointercancel = (e) => {
+                    if (e.pointerId === activePointerId) {
+                        cell.classList.remove('pressing');
+                        isDragging = false;
+                        activePointerId = null;
+                        pointerMoved = false;
+                    }
+                };
+                // --- 完美兼容版 Pointer Events End ---
+
+                calGrid.appendChild(cell);
+                cur.setDate(cur.getDate() + 1);
+            }
+
+            // 将今天精准定位到画面中间
+            // 使用 setTimeout 确保 DOM 完全渲染后再执行滚动
+            setTimeout(() => {
+                if (todayCell) {
+                    // 计算今天距离日历顶部的偏移量，减去容器高度的一半，使其居中
+                    const scrollTarget = todayCell.offsetTop - (calScroll.clientHeight / 2) + (todayCell.offsetHeight / 2);
+                    calScroll.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+                }
+            }, 50);
+        }
+
+        // // 全局鼠标事件（处理拖拽选择）
+        // document.onmouseup = () => { if (isDragging) commitDrag(lastHover || dragStart); };
+        // document.onmousemove = (e) => {
+        //     if (!isDragging) return;
+        //     const r = calScroll.getBoundingClientRect();
+        //     if (e.clientY < r.top + 40) calScroll.scrollTop -= 10;
+        //     else if (e.clientY > r.bottom - 40) calScroll.scrollTop += 10;
+        // };
+
+
+
+        // 错误提示处理
+        function showDateInputError(id) {
+            hideAllDateInputError();
+            const input = document.getElementById(id);
+            if (!input) return;
+            void input.offsetWidth;
+            input.classList.add('error-flash');
+        }
+
+        function hideAllDateInputError() {
+            document.querySelectorAll('input[type="date"]').forEach(input => {
+                input.classList.remove('error-flash');
+            });
+        }
+
+        // 监听所有输入框的聚焦事件
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInputs = document.querySelectorAll('input');
+            dateInputs.forEach(input => {
+                input.addEventListener('focus', () => {
+                    // 清楚错误提示
+                    hideAllDateInputError();
+                    // 输入框获得焦点时全选内容
+                    setTimeout(() => input.select(), 0);
+                });
+            });
+        });
+
+        startDateEl.addEventListener('change', () => {
+            if (startDateEl.value) {
+                endDateEl.setAttribute('min', startDateEl.value);
+                if (startDateEl.value > endDateEl.value) endDateEl.value = '';
+            }
+            else endDateEl.removeAttribute('min');
+        });
+
+        // 区间生成（追加模式）
+        function calcRange() {
+            const s = startDateEl.value
+            const e = endDateEl.value;
+            if (!s) {
+                showDateInputError('startDate');
+                document.getElementById('status').textContent = '⚠️ 请输入开始日期';
+                return;
+            }
+
+            if (!e) {
+                showDateInputError('endDate');
+                document.getElementById('status').textContent = '⚠️ 请输入结束日期';
+                return;
+            }
+
+            // if (s > e) {
+            //     showDateInputError('endDate');
+            //     document.getElementById('status').textContent = '⚠️ 结束日期不能早于开始日期';
+            //     return;
+            // }
+
+            // let cur = new Date(s);
+            // while (cur <= new Date(e)) {
+            //     selected.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`);
+            //     cur.setDate(cur.getDate() + 1);
+            // }
+
+            // const cs = new Date(new Date(s).getFullYear(), new Date(s).getMonth(), 1);
+            // const ce = new Date(new Date(e).getFullYear(), new Date(e).getMonth() + 1, 0);
+            // renderCal(cs, ce);
+            // syncUI();
+            // document.getElementById('status').textContent = `已追加区间，当前共选中 ${selected.size} 天`;
+
+
+            // 1. 加入选中集合
+            let cur = new Date(s);
+            while (cur <= new Date(e)) {
+                selected.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`);
+                cur.setDate(cur.getDate() + 1);
+            }
+
+            const minDateString = [...selected].reduce((min, current) =>
+                current < min ? current : min
+            );
+            const maxDateString = [...selected].reduce((max, current) =>
+                current > max ? current : max
+            );
+
+            const minDateObj = new Date(minDateString);
+            const maxDateObj = new Date(maxDateString);
+
+            // 2. 计算天数差
+            const timeDiff = maxDateObj.getTime() - minDateObj.getTime();
+            const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+            // 3. 定义渲染范围变量
+            let renderStart, renderEnd;
+
+            if (dayDiff >= 365) {
+                // 超过一年：只显示开始日期往后一年                
+                renderStart = new Date(minDateObj.getFullYear(), minDateObj.getMonth(), 1);
+                renderEnd = new Date(minDateObj.getFullYear(), minDateObj.getMonth() + 12, 0);
+
+                // 提示用户
+                document.getElementById('status').textContent =
+                    `📅 选中日期跨度达 ${dayDiff + 1} 天，当前只显示一年的日历视图`;
+            } else {
+                // 不超过一年：正常显示完整区间
+                renderStart = new Date(minDateObj.getFullYear(), minDateObj.getMonth() - 1, 1);
+                renderEnd = new Date(maxDateObj.getFullYear(), maxDateObj.getMonth() + 2, 0);
+
+                document.getElementById('status').textContent = `已追加区间，当前共选中 ${selected.size} 天`;
+            }
+
+            // 4. 执行渲染
+            renderCal(renderStart, renderEnd);
+
+            // 5.同步选中状态
+            syncUI();
+        }
+
+        // 核心计算逻辑
+        function syncUI() {
+            document.querySelectorAll('.day').forEach(c => c.classList.toggle('sel', selected.has(c.dataset.date)));
+            recalc();
+        }
+
+        function recalc() {
+            const counts = [0, 0, 0, 0, 0, 0, 0];
+            let workdays = 0, holis = 0, weekendWork = 0;
+
+            // 将“特殊场次”的日期与“日历选中”的日期合并，确保只设了特殊场次也能被统计到底部四项中
+            const allDatesToCalc = new Set([...selected, ...specialSessMap.keys()]);
+
+            allDatesToCalc.forEach(ds => {
+                const d = new Date(ds).getDay();
+                counts[d]++;
+
+                if (weekendWorkdays.has(ds)) {
+                    weekendWork++;
+                } else if ((d >= 1 && d <= 5) && holidays.has(ds)) {
+                    holis++;
+                } else if (d >= 1 && d <= 5) {
+                    workdays++;
+                }
+            });
+
+            // 1. 更新顶部的“天数行”统计
+            document.querySelectorAll('#daysRow input[data-d]').forEach(i => i.value = counts[i.dataset.d]);
+
+            // 2. 更新底部的统计卡片
+            document.getElementById('bottomWorkdays').innerText = workdays;
+            document.getElementById('bottomHolidays').innerText = holis;
+            document.getElementById('bottomWeekendWork').innerText = weekendWork;
+            document.getElementById('bottomTotalDays').innerText = allDatesToCalc.size;
+
+            // 3. 获取常规的星期场次配置
+            const sessMap = {};
+            document.querySelectorAll('#sessRow input[data-s]').forEach(i => sessMap[i.dataset.s] = parseFloat(i.value) || 0);
+
+            // 4. 计算总场次
+            let totalSess = 0;
+            allDatesToCalc.forEach(ds => {
+                const dayOfWeek = new Date(ds).getDay();
+                const sess = specialSessMap.has(ds) ? specialSessMap.get(ds) : (sessMap[dayOfWeek] || 0);
+                totalSess += sess;
+            });
+
+            // 5. 更新底部的总场次显示
+            document.getElementById('grandTotalBottom').textContent = totalSess;
+            // document.getElementById('status').textContent = '统计完成';
+            // document.getElementById('status').textContent = `工作日: ${workdays} | 公休日: ${holis} | 周末班: ${weekendWork}`;
+        }
+
+        // 监听场次输入
+        document.querySelectorAll('#sessRow input[data-s]').forEach(i => i.addEventListener('input', recalc));
+
+        // 批量应用单日场次
+        function applyBatchSess() {
+            const val = parseFloat(document.getElementById('batchSessInput').value) || 0;
+            document.querySelectorAll('#sessRow input[data-s]').forEach(input => {
+                input.value = val;
+            });
+            recalc();
+            document.getElementById('status').textContent = `已将所有单日场次批量设置为 ${val}`;
+        }
+
+        // 添加特殊场次
+        function addSpecialSess() {
+            const dateVal = document.getElementById('specialDateInput').value;
+            const sessVal = parseFloat(document.getElementById('specialSessInput').value) || 0;
+
+            if (!dateVal) {
+                showDateInputError('specialDateInput');
+                document.getElementById('status').textContent = '⚠️ 请先选择需要设置特殊场次的日期';
+                return;
+            }
+
+            specialSessMap.set(dateVal, sessVal);
+            renderSpecialList();
+            recalc();
+            document.getElementById('status').textContent = `已为 ${dateVal} 设置特殊场次: ${sessVal}`;
+        }
+
+        // 渲染特殊场次列表，修复无法删除的问题
+        function renderSpecialList() {
+            const container = document.getElementById('specialList');
+            container.innerHTML = '';
+            specialSessMap.forEach((sess, date) => {
+                const tag = document.createElement('span');
+                tag.textContent = `${date} (${sess}场)`;
+                tag.title = '点击删除此特殊设置';
+                // 使用闭包或直接绑定，确保删除逻辑正确
+                tag.onclick = () => {
+                    specialSessMap.delete(date);
+                    renderSpecialList();
+                    recalc();
+                    document.getElementById('status').textContent = `已删除 ${date} 的特殊场次设置`;
+                };
+                container.appendChild(tag);
+            });
+        }
+
+        // JSON上传处理（增加严格格式验证）
+        document.getElementById('jsonFile').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const statusEl = document.getElementById('fileStatus');
+            const reader = new FileReader();
+
+            reader.onload = function (ev) {
+                try {
+                    const data = JSON.parse(ev.target.result);
+
+                    // 1. 验证是否为对象
+                    if (!data || typeof data !== 'object') {
+                        throw new Error('JSON 根节点必须是一个对象');
+                    }
+
+                    // 2. 验证是否包含必需的数组字段
+                    if (!Array.isArray(data.holidays)) {
+                        throw new Error('缺少 "holidays" 数组字段');
+                    }
+                    if (!Array.isArray(data.weekend_workdays)) {
+                        throw new Error('缺少 "weekend_workdays" 数组字段');
+                    }
+
+                    // 3. 验证通过，应用数据
+                    holidays.clear();
+                    weekendWorkdays.clear();
+
+                    // 使用格式化函数处理所有日期
+                    data.holidays.forEach(h => {
+                        const formatted = formatDate(h);
+                        if (formatted) holidays.add(formatted)
+                        else throw new Error(`休息日格式错误：${h}`);
+                    });
+
+                    data.weekend_workdays.forEach(w => {
+                        const formatted = formatDate(w);
+                        if (formatted) weekendWorkdays.add(formatted)
+                        else throw new Error(`补班日格式错误：${w}`);
+                    });
+
+                    // 计算真正的公休天数（剔除周六和周日）
+                    let realHolidays = 0;
+                    holidays.forEach(dateStr => {
+                        // 将 "YYYY-MM-DD" 字符串转换为 Date 对象，并获取星期几
+                        const dayOfWeek = new Date(dateStr).getDay();
+                        // 0 代表周日，6 代表周六，只有 1~5 才是真正的工作日公休
+                        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                            realHolidays++;
+                        }
+                    });
+
+                    statusEl.textContent = `✅ 解析成功！工作日公休: ${realHolidays} 天 | 周末班: ${weekendWorkdays.size} 天`;
+                    statusEl.style.color = '#10b981';
+                    renderCal();
+                    recalc();
+
+                } catch (err) {
+                    // 捕获解析错误或自定义校验错误
+                    statusEl.textContent = `❌ JSON格式错误: ${err.message}`;
+                    statusEl.style.color = '#ef4444';
+                }
+            };
+
+            reader.onerror = function () {
+                statusEl.textContent = '❌ 文件读取失败，请重试';
+                statusEl.style.color = '#ef4444';
+            };
+
+            reader.readAsText(file);
+        });
+
+        // 清除JSON配置
+        function clearJson() {
+            holidays.clear();
+            weekendWorkdays.clear();
+            document.getElementById('jsonFile').value = '';
+            document.getElementById('fileStatus').textContent = '';
+            renderCal();
+            recalc();
+        }
+
+        // 仅清除选中的日期区间
+        function clearSelected() {
+            selected.clear();
+            syncUI();
+            renderCal()
+            hideAllDateInputError();
+            document.getElementById('status').textContent = '已清除所有选中的日期区间';
+        }
+
+        // 全部清除，彻底重置特殊场次及输入框
+        function clearAll() {
+            selected.clear();
+            specialSessMap.clear();
+            renderSpecialList(); // 清空特殊场次列表UI
+
+            // 1. 清空日期和区间的输入框
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+
+            // 2. 清空特殊场次的日期选择控件和场次输入控件
+            document.getElementById('specialDateInput').value = '';
+            document.getElementById('specialSessInput').value = '1'; // 场次清空后，默认重置为1
+
+            // 3. 重置常规星期场次为默认值
+            document.querySelectorAll('#sessRow input[data-s]').forEach(i => i.value = 1);
+
+            clearJson();
+            renderCal();
+            syncUI();
+            hideAllDateInputError();
+            document.getElementById('status').textContent = '已清空所有数据';
+        }
+
+        // 初始化
+        renderCal();
+
+
+    </script>
+</body>
+
+</html>
