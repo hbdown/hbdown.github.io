@@ -139,6 +139,11 @@
             color: #fff;
         }
 
+        .day.pressing {
+            background: #d1d5db !important;
+            transition: background 0.1s;
+        }
+
         .day.today {
             border: 1px solid var(--primary);
         }
@@ -791,11 +796,19 @@
         let holidays = new Set();
         let weekendWorkdays = new Set();
         const specialSessMap = new Map();
-        let isDragging = false, dragStart = null, dragWasSel = false, lastHover = null;
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         const startDateEl = document.getElementById('startDate');
         const endDateEl = document.getElementById('endDate');
+
+        let isDragging = false;
+        let dragStart = null;
+        let dragWasSel = false;
+        let lastHover = null;
+
+        let pressTimer = null;          // 用于存储长按定时器的引用
+        let isLongPress = false;        // 标记当前是否已经触发了长按
+        let startPos = { x: 0, y: 0 };  // 记录手指按下的初始位置
 
         // --- 工具函数：将日期字符串或对象标准化为 YYYY-MM-DD 格式 ---
         function formatDate(dateInput) {
@@ -924,6 +937,75 @@
                         updateDrag(ds);
                     }
                 };
+
+                // --- 触摸事件逻辑 Start ---
+                cell.ontouchstart = (e) => {
+                    e.preventDefault();
+                    clearTimeout(pressTimer);
+                    isLongPress = false;
+
+                    const touch = e.touches[0];
+                    startPos.x = touch.clientX;
+                    startPos.y = touch.clientY;
+                    cell.classList.add('pressing');
+
+                    // 设置 300ms 长按判定
+                    pressTimer = setTimeout(() => {
+                        isLongPress = true;
+                        isDragging = true;
+                        dragStart = ds;
+                        dragWasSel = selected.has(ds);
+                        // console.log('长按触发');
+                    }, 300);
+                };
+
+                cell.ontouchmove = (e) => {
+                    if (isLongPress) {
+                        e.preventDefault(); // 阻止页面滚动
+                        const touch = e.touches[0];
+                        const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+                        const newCell = targetEl?.closest('.day');
+
+                        if (newCell && newCell !== cell) {
+                            const newDs = newCell.dataset.date;
+                            lastHover = newDs;
+                            updateDrag(newDs);
+                            // 视觉跟随
+                            cell.classList.remove('pressing');
+                            newCell.classList.add('pressing');
+                        }
+                    } else {
+                        // 移动超过 10px 取消点击
+                        const touch = e.touches[0];
+                        const diffX = Math.abs(touch.clientX - startPos.x);
+                        const diffY = Math.abs(touch.clientY - startPos.y);
+                        if (diffX > 10 || diffY > 10) {
+                            clearTimeout(pressTimer);
+                            cell.classList.remove('pressing');
+                        }
+                    }
+                };
+
+                cell.ontouchend = (e) => {
+                    e.preventDefault();
+                    clearTimeout(pressTimer);
+                    cell.classList.remove('pressing');
+
+                    if (isLongPress) {
+                        commitDrag(lastHover || ds);
+                    } else {
+                        // 短按：单点切换选中状态
+                        if (selected.has(ds)) {
+                            selected.delete(ds);
+                        } else {
+                            selected.add(ds);
+                        }
+                        syncUI();
+                        hideAllDateInputError();
+                    }
+                    isLongPress = false;
+                };
+                // --- 触摸事件逻辑 End ---
 
                 calGrid.appendChild(cell);
                 cur.setDate(cur.getDate() + 1);
