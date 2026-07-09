@@ -123,7 +123,6 @@
             transition: 0.2s;
             user-select: none;
             position: relative;
-            touch-action: pan-y pinch-zoom;
         }
 
         .day:hover {
@@ -203,6 +202,17 @@
         /* 周末班选中：变为明亮的橙色，与公休日选中明显区分 */
         .day.sel.weekend-work::after {
             color: #f59e0b;
+        }
+
+        .drag-mask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+            background: transparent;
+            touch-action: none;
         }
 
         .toggle-btn {
@@ -807,9 +817,13 @@
         let dragWasSel = false;
         let lastHover = null;
 
-        let pointerMoved = false; // 标记指针是否真的发生了移动
-        let activePointerId = null; // 【新增】记录当前正在拖动的手指/鼠标指针 ID
-        let startPos = { x: 0, y: 0 }; // 记录按下位置
+        let pressTimer = null;          // 用于存储长按定时器的引用
+        let isLongPress = false;        // 标记当前是否已经触发了长按
+        let startPos = { x: 0, y: 0 };  // 记录手指按下的初始位置
+        let maskElement = null;         // 记录遮罩元素
+        let activePointerId = null;     // 记录当前活动的指针 ID
+        let isMouse = false;            // 标记当前操作是否为鼠标
+        let autoScrollTimer = null;     // 自动滚动定时器
 
         // --- 工具函数：将日期字符串或对象标准化为 YYYY-MM-DD 格式 ---
         function formatDate(dateInput) {
@@ -869,29 +883,41 @@
                 if (c) c.classList.add('drag');
             });
         }
-
         function commitDrag(end) {
             if (!isDragging || !dragStart) return;
-
-            const finalEnd = end || lastHover || dragStart;
-            const dates = getRange(dragStart, finalEnd);
-
-            dates.forEach(d => {
-                if (dragWasSel) { selected.delete(d); }
-                else { selected.add(d); }
-            });
-
-            isDragging = false;
-            activePointerId = null;
-            dragStart = null;
-
-            // 清除所有残留样式
-            document.querySelectorAll('.day.drag, .day.pressing').forEach(c => {
-                c.classList.remove('drag', 'pressing');
-            });
-
+            const dates = getRange(dragStart, end);
+            dates.forEach(d => dragWasSel ? selected.delete(d) : selected.add(d));
+            isDragging = false; dragStart = null;
+            document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
             syncUI();
         }
+
+        // --- 自动滚动逻辑 Start ---
+        function handleAutoScroll(clientY) {
+            // 清除旧的定时器
+            if (autoScrollTimer) {
+                clearInterval(autoScrollTimer);
+                autoScrollTimer = null;
+            }
+
+            const rect = calScroll.getBoundingClientRect();
+            const scrollTopMax = calScroll.scrollHeight - calScroll.clientHeight;
+            const edgeThreshold = 60; // 距离边缘多少像素开始滚动
+
+            // 向上滚动
+            if (clientY < rect.top + edgeThreshold && calScroll.scrollTop > 0) {
+                autoScrollTimer = setInterval(() => {
+                    calScroll.scrollTop -= 15;
+                }, 50);
+            }
+            // 向下滚动
+            else if (clientY > rect.bottom - edgeThreshold && calScroll.scrollTop < scrollTopMax) {
+                autoScrollTimer = setInterval(() => {
+                    calScroll.scrollTop += 15;
+                }, 50);
+            }
+        }
+        // --- 自动滚动逻辑 End ---
 
         function renderCal(cStart, cEnd) {
             calGrid.innerHTML = '';
@@ -937,66 +963,95 @@
                 if (holidays.has(ds)) cell.classList.add('holiday');
                 if (weekendWorkdays.has(ds)) cell.classList.add('weekend-work');
 
-                // --- 完美兼容版 Pointer Events Start ---
+                // --- Pointer Events + 遮罩方案 (完美集成自动滚动) Start ---
                 cell.onpointerdown = (e) => {
-                    // 1. 捕获指针，防止滑出元素后事件丢失
                     cell.setPointerCapture(e.pointerId);
 
-                    // 2. 初始化状态（注意：此时 isDragging 为 false，等待移动判定）
                     activePointerId = e.pointerId;
-                    pointerMoved = false;
+                    clearTimeout(pressTimer);
+                    isLongPress = false;
                     isDragging = false;
-                    dragStart = ds;
-                    dragWasSel = selected.has(ds);
-                    lastHover = ds;
+                    const isMouse = (e.pointerType === 'mouse');
 
                     startPos.x = e.clientX;
                     startPos.y = e.clientY;
-
                     cell.classList.add('pressing');
+
+                    if (isMouse) {
+                        // 【鼠标逻辑】：按下立刻开始拖动
+                        isDragging = true;
+                        dragStart = ds;
+                        dragWasSel = selected.has(ds);
+                        lastHover = ds;
+                        updateDrag(ds);
+                    } else {
+                        // 【触摸逻辑】：启动 300ms 长按定时器
+                        pressTimer = setTimeout(() => {
+                            isLongPress = true;
+                            isDragging = true;
+                            dragStart = ds;
+                            dragWasSel = selected.has(ds);
+                            lastHover = ds;
+
+                            // 生成透明遮罩接管后续滑动
+                            maskElement = document.createElement('div');
+                            maskElement.className = 'drag-mask';
+                            document.body.appendChild(maskElement);
+
+                            updateDrag(ds);
+                            if (navigator.vibrate) navigator.vibrate(30);
+                        }, 300);
+                    }
                 };
 
                 cell.onpointermove = (e) => {
-                    // 只处理当前捕获的指针
                     if (e.pointerId !== activePointerId) return;
 
-                    // 【核心逻辑】：判断是否移动超过 5px 阈值
-                    if (!isDragging) {
+                    if (isDragging) {
+                        e.preventDefault();
+
+                        // 【核心新增】：只要处于拖动状态，就持续检测边缘并触发自动滚动
+                        handleAutoScroll(e.clientY);
+
+                        const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+                        const newCell = targetEl?.closest('.day');
+
+                        if (newCell && newCell.dataset.date !== lastHover) {
+                            lastHover = newCell.dataset.date;
+                            updateDrag(lastHover);
+                        }
+                    } else if (e.pointerType !== 'mouse') {
+                        // 【触摸且未进入拖动状态】：防误触
                         const diffX = Math.abs(e.clientX - startPos.x);
                         const diffY = Math.abs(e.clientY - startPos.y);
-
-                        if (diffX > 5 || diffY > 5) {
-                            // 超过阈值，正式进入拖动模式！
-                            isDragging = true;
-                            pointerMoved = true;
-                            updateDrag(ds); // 初始化高亮
-                        } else {
-                            return; // 未达到阈值，不处理，允许浏览器原生滚动
+                        if (diffX > 10 || diffY > 10) {
+                            clearTimeout(pressTimer);
+                            cell.classList.remove('pressing');
                         }
-                    }
-
-                    // 进入拖动模式后，阻止页面滚动，执行日期选择
-                    e.preventDefault();
-
-                    const targetEl = document.elementFromPoint(e.clientX, e.clientY);
-                    const newCell = targetEl?.closest('.day');
-
-                    if (newCell && newCell.dataset.date !== lastHover) {
-                        lastHover = newCell.dataset.date;
-                        updateDrag(lastHover);
                     }
                 };
 
                 cell.onpointerup = (e) => {
                     if (e.pointerId !== activePointerId) return;
 
+                    clearTimeout(pressTimer);
                     cell.classList.remove('pressing');
 
-                    if (pointerMoved && isDragging) {
-                        // 发生了拖动，提交范围选择
+                    // 【核心新增】：抬起时，立刻停止自动滚动
+                    if (autoScrollTimer) {
+                        clearInterval(autoScrollTimer);
+                        autoScrollTimer = null;
+                    }
+
+                    // 移除遮罩
+                    if (maskElement) {
+                        maskElement.remove();
+                        maskElement = null;
+                    }
+
+                    if (isDragging) {
                         commitDrag(lastHover || dragStart);
                     } else {
-                        // 【修复点1】：没有发生拖动，执行纯粹的点击变色逻辑
                         if (selected.has(ds)) {
                             selected.delete(ds);
                         } else {
@@ -1006,21 +1061,32 @@
                         hideAllDateInputError();
                     }
 
-                    // 重置状态
                     isDragging = false;
+                    isLongPress = false;
                     activePointerId = null;
-                    pointerMoved = false;
                 };
 
                 cell.onpointercancel = (e) => {
                     if (e.pointerId === activePointerId) {
+                        clearTimeout(pressTimer);
                         cell.classList.remove('pressing');
+
+                        // 【核心新增】：意外取消时，也要停止自动滚动
+                        if (autoScrollTimer) {
+                            clearInterval(autoScrollTimer);
+                            autoScrollTimer = null;
+                        }
+
+                        if (maskElement) {
+                            maskElement.remove();
+                            maskElement = null;
+                        }
+                        isLongPress = false;
                         isDragging = false;
                         activePointerId = null;
-                        pointerMoved = false;
                     }
                 };
-                // --- 完美兼容版 Pointer Events End ---
+                // --- Pointer Events + 遮罩方案 End ---
 
                 calGrid.appendChild(cell);
                 cur.setDate(cur.getDate() + 1);
@@ -1037,14 +1103,14 @@
             }, 50);
         }
 
-        // // 全局鼠标事件（处理拖拽选择）
-        // document.onmouseup = () => { if (isDragging) commitDrag(lastHover || dragStart); };
-        // document.onmousemove = (e) => {
-        //     if (!isDragging) return;
-        //     const r = calScroll.getBoundingClientRect();
-        //     if (e.clientY < r.top + 40) calScroll.scrollTop -= 10;
-        //     else if (e.clientY > r.bottom - 40) calScroll.scrollTop += 10;
-        // };
+        // 全局鼠标事件（处理拖拽选择）
+        document.onmouseup = () => { if (isDragging) commitDrag(lastHover || dragStart); };
+        document.onmousemove = (e) => {
+            if (!isDragging) return;
+            const r = calScroll.getBoundingClientRect();
+            if (e.clientY < r.top + 40) calScroll.scrollTop -= 10;
+            else if (e.clientY > r.bottom - 40) calScroll.scrollTop += 10;
+        };
 
 
 
