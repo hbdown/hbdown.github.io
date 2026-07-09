@@ -123,6 +123,7 @@
             transition: 0.2s;
             user-select: none;
             position: relative;
+            touch-action: none;
         }
 
         .day:hover {
@@ -821,11 +822,8 @@
         let isLongPress = false;        // 标记当前是否已经触发了长按
         let startPos = { x: 0, y: 0 };  // 记录手指按下的初始位置
         let maskElement = null;         // 记录遮罩元素
-        let activePointerId = null;     // 记录当前活动的指针 ID
-        let isMouse = false;            // 标记当前操作是否为鼠标
         let autoScrollTimer = null;     // 自动滚动定时器
-        let pendingPointerId = null; // 【新增】用于长按触发后转移指针捕获
-        
+
         // --- 工具函数：将日期字符串或对象标准化为 YYYY-MM-DD 格式 ---
         function formatDate(dateInput) {
             let date;
@@ -964,154 +962,110 @@
                 if (holidays.has(ds)) cell.classList.add('holiday');
                 if (weekendWorkdays.has(ds)) cell.classList.add('weekend-work');
 
-                // --- Pointer Events + 遮罩方案 (终极修复版) Start ---
-cell.onpointerdown = (e) => {
-    // 1. 捕获当前指针
-    cell.setPointerCapture(e.pointerId);
-    
-    activePointerId = e.pointerId;
-    clearTimeout(pressTimer);
-    isLongPress = false;
-    isDragging = false;
-    const isMouse = (e.pointerType === 'mouse');
-    
-    startPos.x = e.clientX;
-    startPos.y = e.clientY;
-    cell.classList.add('pressing');
+                // --- 终极 Touch 方案：短按点选 + 长按拖动 Start ---
+                cell.ontouchstart = (e) => {
+                    // 注意：因为 CSS 已经设置了 touch-action: none，这里不需要 e.preventDefault()
+                    clearTimeout(pressTimer);
+                    isLongPress = false;
 
-    if (isMouse) {
-        // 【鼠标逻辑】：按下立刻开始拖动
-        isDragging = true;
-        dragStart = ds;
-        dragWasSel = selected.has(ds);
-        lastHover = ds;
-        updateDrag(ds);
-    } else {
-        // 【触摸逻辑】：启动 300ms 长按定时器
-        pressTimer = setTimeout(() => {
-            isLongPress = true;
-            isDragging = true;
-            dragStart = ds;
-            dragWasSel = selected.has(ds);
-            lastHover = ds;
-            
-            // 【核心修复】：长按触发时，生成透明遮罩，并让遮罩接管指针！
-            maskElement = document.createElement('div');
-            maskElement.className = 'drag-mask';
-            document.body.appendChild(maskElement);
-            
-            // 将当前手指的控制权转移给遮罩层，彻底接管后续滑动
-            pendingPointerId = e.pointerId;
-            maskElement.setPointerCapture(e.pointerId);
-            
-            updateDrag(ds);
-            if (navigator.vibrate) navigator.vibrate(30); 
-        }, 300);
-    }
-};
+                    const touch = e.touches[0];
+                    startPos.x = touch.clientX;
+                    startPos.y = touch.clientY;
+                    cell.classList.add('pressing');
 
-// 【核心新增】：在遮罩层上监听 pointermove，处理长按后的拖动
-// 我们使用事件委托，直接在 document 上监听，确保遮罩层的事件能被捕获
-document.addEventListener('pointermove', (e) => {
-    // 只处理由遮罩层捕获的指针
-    if (maskElement && e.pointerId === pendingPointerId && isDragging) {
-        e.preventDefault(); // 彻底阻止页面滚动
-        
-        // 触发自动滚动
-        handleAutoScroll(e.clientY);
-        
-        const targetEl = document.elementFromPoint(e.clientX, e.clientY);
-        const newCell = targetEl?.closest('.day');
-        
-        if (newCell && newCell.dataset.date !== lastHover) {
-            lastHover = newCell.dataset.date;
-            updateDrag(lastHover);
-        }
-    }
-});
+                    // 启动 300ms 长按定时器
+                    pressTimer = setTimeout(() => {
+                        isLongPress = true;
+                        isDragging = true;
+                        dragStart = ds;
+                        dragWasSel = selected.has(ds);
+                        lastHover = ds;
 
-cell.onpointermove = (e) => {
-    // 鼠标拖动或触摸未进入长按状态时的防误触逻辑保持不变
-    if (e.pointerId !== activePointerId) return;
+                        // 生成透明遮罩，防止手指滑出格子时丢失事件
+                        maskElement = document.createElement('div');
+                        maskElement.className = 'drag-mask';
+                        document.body.appendChild(maskElement);
 
-    if (isDragging && e.pointerType === 'mouse') {
-        e.preventDefault(); 
-        handleAutoScroll(e.clientY);
-        
-        const targetEl = document.elementFromPoint(e.clientX, e.clientY);
-        const newCell = targetEl?.closest('.day');
-        
-        if (newCell && newCell.dataset.date !== lastHover) {
-            lastHover = newCell.dataset.date;
-            updateDrag(lastHover);
-        }
-    } else if (e.pointerType !== 'mouse') {
-        const diffX = Math.abs(e.clientX - startPos.x);
-        const diffY = Math.abs(e.clientY - startPos.y);
-        if (diffX > 10 || diffY > 10) {
-            clearTimeout(pressTimer);
-            cell.classList.remove('pressing');
-        }
-    }
-};
+                        updateDrag(ds);
+                        if (navigator.vibrate) navigator.vibrate(30);
+                    }, 300);
+                };
 
-cell.onpointerup = (e) => {
-    if (e.pointerId !== activePointerId && e.pointerId !== pendingPointerId) return;
+                cell.ontouchmove = (e) => {
+                    if (isLongPress && isDragging) {
+                        // 长按拖动模式：阻止任何默认行为
+                        e.preventDefault();
 
-    clearTimeout(pressTimer);
-    cell.classList.remove('pressing');
-    
-    // 停止自动滚动
-    if (autoScrollTimer) {
-        clearInterval(autoScrollTimer);
-        autoScrollTimer = null;
-    }
-    
-    // 移除遮罩
-    if (maskElement) {
-        maskElement.remove();
-        maskElement = null;
-    }
+                        // 触发边缘自动滚动
+                        handleAutoScroll(e.touches[0].clientY);
 
-    if (isDragging) {
-        commitDrag(lastHover || dragStart);
-    } else {
-        if (selected.has(ds)) { 
-            selected.delete(ds); 
-        } else { 
-            selected.add(ds); 
-        }
-        syncUI();
-        hideAllDateInputError();
-    }
-    
-    isDragging = false;
-    isLongPress = false;
-    activePointerId = null;
-    pendingPointerId = null;
-};
+                        // 获取手指下方的元素并更新高亮
+                        const targetEl = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+                        const newCell = targetEl?.closest('.day');
 
-cell.onpointercancel = (e) => {
-    if (e.pointerId === activePointerId || e.pointerId === pendingPointerId) {
-        clearTimeout(pressTimer);
-        cell.classList.remove('pressing');
-        
-        if (autoScrollTimer) {
-            clearInterval(autoScrollTimer);
-            autoScrollTimer = null;
-        }
-        
-        if (maskElement) {
-            maskElement.remove();
-            maskElement = null;
-        }
-        isLongPress = false;
-        isDragging = false;
-        activePointerId = null;
-        pendingPointerId = null;
-    }
-};
-// --- Pointer Events + 遮罩方案 End ---
+                        if (newCell && newCell.dataset.date !== lastHover) {
+                            lastHover = newCell.dataset.date;
+                            updateDrag(lastHover);
+                        }
+                    } else if (!isLongPress) {
+                        // 还没触发长按，判断是否滑动超过 10px，取消长按判定（防误触）
+                        const touch = e.touches[0];
+                        const diffX = Math.abs(touch.clientX - startPos.x);
+                        const diffY = Math.abs(touch.clientY - startPos.y);
+                        if (diffX > 10 || diffY > 10) {
+                            clearTimeout(pressTimer);
+                            cell.classList.remove('pressing');
+                        }
+                    }
+                };
+
+                cell.ontouchend = (e) => {
+                    e.preventDefault(); // 阻止浏览器合成后续的 click 事件
+                    clearTimeout(pressTimer);
+                    cell.classList.remove('pressing');
+
+                    // 移除遮罩
+                    if (maskElement) {
+                        maskElement.remove();
+                        maskElement = null;
+                    }
+
+                    // 停止自动滚动
+                    if (autoScrollTimer) {
+                        clearInterval(autoScrollTimer);
+                        autoScrollTimer = null;
+                    }
+
+                    if (isLongPress && isDragging) {
+                        // 长按拖拽结束，提交范围选择
+                        commitDrag(lastHover || dragStart);
+                    } else if (!isDragging) {
+                        // 短按点击，切换单选
+                        if (selected.has(ds)) { selected.delete(ds); }
+                        else { selected.add(ds); }
+                        syncUI();
+                        hideAllDateInputError();
+                    }
+
+                    isDragging = false;
+                    isLongPress = false;
+                };
+
+                cell.ontouchcancel = () => {
+                    clearTimeout(pressTimer);
+                    cell.classList.remove('pressing');
+                    if (maskElement) {
+                        maskElement.remove();
+                        maskElement = null;
+                    }
+                    if (autoScrollTimer) {
+                        clearInterval(autoScrollTimer);
+                        autoScrollTimer = null;
+                    }
+                    isLongPress = false;
+                    isDragging = false;
+                };
+                // --- 终极 Touch 方案 End ---
 
                 calGrid.appendChild(cell);
                 cur.setDate(cur.getDate() + 1);
