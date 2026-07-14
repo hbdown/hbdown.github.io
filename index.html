@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
     <title>坐标转换工具</title>
     <style>
         /* 1. 全局重置与基础样式 */
@@ -209,6 +209,13 @@
                 padding-bottom: 20px;
                 border-right: none;
                 border-bottom: 1px solid #eee;
+            }
+
+            input,
+            textarea,
+            select {
+                font-size: 16px !important;
+                -webkit-text-size-adjust: 100%;
             }
         }
     </style>
@@ -683,6 +690,17 @@ Y: ${y}
     document.getElementById("gaussInverse")?.addEventListener("click", gaussInverseBtn);
     document.getElementById("gaussInverseDM")?.addEventListener("click", gaussInverseDMBtn);
     document.getElementById("mapTrans")?.addEventListener("click", mapTransBtn);
+
+    // 获取所有的数字输入框（包括开始和结束日期）
+    const inputs = document.querySelectorAll('input[type="number"]');
+    inputs.forEach(input => {
+        input.addEventListener('focus', function () {
+            // 延迟执行，确保在移动端键盘弹起和焦点稳定后全选
+            setTimeout(() => {
+                this.select();
+            }, 0);
+        });
+    });
 </script>
 
 </html>
