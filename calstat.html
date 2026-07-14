@@ -61,6 +61,15 @@
             align-items: center;
         }
 
+        .cal-title {
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 10px 0;
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+        }
+
         .weekdays {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -132,6 +141,17 @@
         .day.sel {
             background: var(--primary);
             color: #fff;
+        }
+
+        .day.out-of-month {
+            color: #aaa !important;
+            opacity: 0.6;
+        }
+
+        .day.out-of-month.selected {
+            background: #e0e0e0 !important;
+            color: #333 !important;
+            opacity: 1;
         }
 
         .day.drag {
@@ -679,6 +699,7 @@
                 <span>🗓️ 日历</span>
                 <button class="btn-ghost mobile-collapse-btn" id="mobileCollapseBtn">收起 ▲</button>
             </div>
+            <div id="calTitle" class="cal-title">2026年7月</div>
             <div class="weekdays">
                 <div>一</div>
                 <div>二</div>
@@ -869,7 +890,7 @@
             });
         }
         function commitDrag(end) {
-            if (!isDragging || !dragStart) 
+            if (!isDragging || !dragStart)
                 return;
             const dates = getRange(dragStart, end);
             dates.forEach(d => dragWasSel ? selected.delete(d) : selected.add(d));
@@ -887,7 +908,7 @@
 
             // 补齐第一周前面的空白格子
             const off = cur.getDay() === 0 ? 6 : cur.getDay() - 1;
-            for (let i = 0; i < off; i++) {
+            for (let i = 0; i < off + 21; i++) {
                 const d = document.createElement('div');
                 d.className = 'day hide';
                 calGrid.appendChild(d);
@@ -902,6 +923,11 @@
                 cell.className = 'day';
                 cell.textContent = dt;
                 cell.dataset.date = ds;
+
+                const mainMonth = start.getMonth();
+                if (m !== mainMonth) {
+                    cell.classList.add('out-of-month');
+                }
 
                 // 月份标记
                 if (m !== lastM) {
@@ -944,6 +970,12 @@
                 cur.setDate(cur.getDate() + 1);
             }
 
+            for (let i = 0; i < 28; i++) {
+                const d = document.createElement('div');
+                d.className = 'day hide';
+                calGrid.appendChild(d);
+            }
+
             // 将今天精准定位到画面中间
             // 使用 setTimeout 确保 DOM 完全渲染后再执行滚动
             setTimeout(() => {
@@ -953,6 +985,61 @@
                     calScroll.scrollTo({ top: scrollTarget, behavior: 'smooth' });
                 }
             }, 50);
+
+            const scrollContainer = document.querySelector('.cal-scroll');
+            const calTitle = document.getElementById('calTitle');
+
+            if (scrollContainer && calTitle) {
+                // 移除旧的监听器，防止重复绑定
+                scrollContainer.removeEventListener('scroll', updateCalTitle);
+                scrollContainer.addEventListener('scroll', updateCalTitle);
+
+                // 初始渲染时立即执行一次
+                updateCalTitle();
+            }
+        }
+
+        function updateCalTitle() {
+            const scrollContainer = document.querySelector('.cal-scroll');
+            const calTitle = document.getElementById('calTitle');
+            if (!scrollContainer || !calTitle) return;
+
+            // 获取滚动容器在屏幕上的绝对顶部位置
+            const containerTop = scrollContainer.getBoundingClientRect().top;
+            // 稍微往下偏移8px ，防止刚好卡在边缘
+            const triggerTop = containerTop + 150;
+
+            const days = document.querySelectorAll('.day');
+            if (!days.length) return;
+
+            let curYear, curMonth;
+
+            // 正序遍历，找到第一个“顶部刚好越过触发线”的【当月日期】
+            for (let i = 0; i < days.length; i++) {
+                const day = days[i];
+                const dayTop = day.getBoundingClientRect().top;
+
+                // 如果这个格子还在触发线之上，说明还没到它，继续看下一个
+                if (dayTop < triggerTop) continue;
+                const dateStr = day.dataset.date;
+                if (dateStr) { [curYear, curMonth] = dateStr.split('-'); }
+                break;
+
+            }
+
+            if (!curYear || !curMonth) return; 
+            
+            const targetYM = `${curYear}-${curMonth}`;
+            for (let i = 0; i < days.length; i++) {
+                const day = days[i];
+                const dateStr = day.dataset.date;
+                if (dateStr && dateStr.startsWith(targetYM)) {
+                    day.classList.remove('out-of-month');
+                }
+                else { day.classList.add('out-of-month'); }
+            }
+            
+            calTitle.innerText = `${curYear}年${parseInt(curMonth)}月`;
         }
 
         // 全局鼠标事件（处理拖拽选择）
