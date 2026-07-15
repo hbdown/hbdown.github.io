@@ -13,11 +13,7 @@
             --border: #e5e7eb;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: system-ui, sans-serif;
@@ -34,7 +30,7 @@
             height: 600px;
             background: var(--card);
             border-radius: 12px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
             overflow: hidden;
             position: relative;
         }
@@ -46,7 +42,6 @@
             display: flex;
             flex-direction: column;
             background: #fafafa;
-            transition: width 0.3s ease, height 0.3s ease;
             overflow: hidden;
         }
 
@@ -54,7 +49,6 @@
             padding: 15px;
             font-weight: bold;
             border-bottom: 1px solid var(--border);
-            white-space: nowrap;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -71,53 +65,30 @@
 
         .weekdays {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns: repeat(7,1fr);
             text-align: center;
             font-size: 13px;
             color: #6b7280;
             font-weight: 600;
             padding: 10px 10px 5px;
             border-bottom: 1px solid var(--border);
-            white-space: nowrap;
         }
 
         .cal-scroll {
             flex: 1;
             overflow-y: auto;
             padding: 10px;
-            scrollbar-width: none;
+            scrollbar-width: thin;
             scrollbar-color: #d1d5db #f9fafb;
         }
 
-        .cal-scroll::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .cal-scroll::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .cal-scroll::-webkit-scrollbar-thumb {
-            background: #d1d5db;
-            border-radius: 3px;
-        }
-
-        @supports (scrollbar-width: thin) {
-            .cal-scroll {
-                scrollbar-width: thin;
-                scrollbar-gutter: stable;
-            }
-
-            .weekdays {
-                overflow-y: auto;
-                scrollbar-gutter: stable;
-                scrollbar-width: thin;
-            }
-        }
+        .cal-scroll::-webkit-scrollbar { width: 6px; }
+        .cal-scroll::-webkit-scrollbar-track { background: transparent; }
+        .cal-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns: repeat(7,1fr);
             gap: 6px;
         }
 
@@ -127,341 +98,320 @@
             border-radius: 6px;
             font-size: 14px;
             text-align: center;
-            transition: 0.2s;
+            transition: background 0.15s;
             user-select: none;
             position: relative;
             -webkit-user-select: none;
             -webkit-touch-callout: none;
+            touch-action: manipulation;
         }
 
-        .day:hover {
-            background: #e5e7eb;
-        }
-
-        .day.sel {
-            background: var(--primary);
-            color: #fff;
-        }
-
-        .day.out-of-month {
-            color: #aaa !important;
-            opacity: 0.6;
-        }
-
-        .day.out-of-month.selected {
-            background: #e0e0e0 !important;
-            color: #333 !important;
-            opacity: 1;
-        }
-
-        .day.drag {
-            background: #93c5fd;
-            color: #fff;
-        }
-
-        .day.pressing {
-            background: #d1d5db !important;
-            transition: background 0.1s;
-        }
-
-        .day.today {
-            border: 1px solid var(--primary);
-        }
+        .day:hover { background: #e5e7eb; }
+        .day.sel { background: var(--primary); color: #fff; }
+        .day.out-of-month { color: #aaa !important; opacity: 0.6; }
+        .day.drag { background: #93c5fd; color: #fff; }
+        .day.pressing { background: #d1d5db !important; }
+        .day.today { border: 1px solid var(--primary); }
+        .day.hide { visibility: hidden; pointer-events: none; }
 
         .day.ph::before {
             content: attr(data-m);
             position: absolute;
-            top: -2px;
-            right: 2px;
+            top: -2px; right: 2px;
             font-size: 9px;
             color: var(--primary);
             font-weight: bold;
         }
-
-        .day.sel.ph::before {
-            color: #fff;
-        }
-
-        .day.hide {
-            visibility: hidden;
-            pointer-events: none;
-        }
+        .day.sel.ph::before { color: #fff; }
 
         .day::after {
             content: '';
             position: absolute;
-            bottom: 2px;
-            left: 50%;
+            bottom: 2px; left: 50%;
             transform: translateX(-50%);
             font-size: 10px;
             font-weight: bold;
             line-height: 1;
-            background: transparent;
         }
+        .day.holiday::after { content: '休'; color: #3b82f6; }
+        .day.weekend-work::after { content: '班'; color: #a87bf5; }
+        .day.sel.holiday::after { color: #ef4444; }
+        .day.sel.weekend-work::after { color: #f59e0b; }
 
-        .day.holiday::after {
-            content: '休';
-            color: #3b82f6;
-        }
-
-        .day.weekend-work::after {
-            content: '班';
-            color: #a87bf5;
-        }
-
-        .day.sel.holiday::after {
-            color: #ef4444;
-        }
-
-        .day.sel.weekend-work::after {
-            color: #f59e0b;
+        .cal-scroll.no-touch-scroll {
+            touch-action: none !important;
+            overscroll-behavior: none;
         }
     </style>
 </head>
 
 <body>
-
-    <div class="app mobile-collapsed" id="app">
-
+    <div class="app" id="app">
         <div class="cal-panel">
-            <div class="cal-header">
-                <span>🗓️ 日历</span>
-            </div>
+            <div class="cal-header"><span>🗓️ 日历</span></div>
             <div id="calTitle" class="cal-title">2026年7月</div>
             <div class="weekdays">
-                <div>一</div>
-                <div>二</div>
-                <div>三</div>
-                <div>四</div>
-                <div>五</div>
-                <div>六</div>
-                <div>日</div>
+                <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div>
             </div>
             <div class="cal-scroll" id="calScroll">
                 <div class="grid" id="calGrid"></div>
             </div>
         </div>
-
     </div>
 
     <script>
         const calGrid = document.getElementById('calGrid');
         const calScroll = document.getElementById('calScroll');
+        const calTitle = document.getElementById('calTitle');
+
         let selected = new Set();
         let holidays = new Set();
         let weekendWorkdays = new Set();
-        const specialSessMap = new Map();
+
         const today = new Date();
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const todayStr = fmt(today);
 
-        /* ========== 鼠标拖拽状态 ========== */
-        let isDragging = false;
-        let dragStart = null;
-        let dragWasSel = false;
-        let lastHover = null;
+        function fmt(d) {
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
 
-        /* ========== 触摸状态 ========== */
-        let touchMode = null;            // null | 'pending' | 'scroll' | 'drag-select'
+        /* ========== 状态变量 ========== */
+        // 鼠标状态
+        let mouseDown = false;
+        let mouseDragStart = null;
+        let mouseWasSel = false;
+        let mouseLastHover = null;
+
+        // 触摸状态
+        let touchActive = false;
+        let touchTimer = null;
+        let touchDragMode = false;   
+        let touchDragStart = null;
+        let touchWasSel = false;
+        let touchLastHover = null;
         let touchStartX = 0, touchStartY = 0;
-        let touchStartCell = null;       // 触摸起始的日期格子
-        let touchStartWasSel = false;    // 起始格子是否已选中
-        let touchLongPressTimer = null;
-        let touchLastCell = null;        // 触摸拖拽最后经过的格子
-        let touchMoved = false;          // 是否发生了有效移动（用于区分短按和滑动）
+        let touchMoved = false;
 
-        const TOUCH_MOVE_THRESHOLD = 10; // 滑动判定阈值(px)
-        const LONG_PRESS_DELAY = 400;    // 长按延迟(ms)
+        // 【关键修复】防幽灵点击（Ghost Click）时间戳
+        let lastTouchEndTime = 0;
+        const GHOST_CLICK_GAP = 500; // 触摸结束后忽略鼠标事件的时间窗口(ms)
+
+        const MOVE_THRESHOLD = 10;
+        const LONG_PRESS_MS = 400;
 
         /* ========== 工具函数 ========== */
-        const toTime = s => new Date(s).getTime();
-
         function getRange(s, e) {
-            let start = new Date(Math.min(toTime(s), toTime(e)));
-            let end = new Date(Math.max(toTime(s), toTime(e)));
-            let res = [];
-            while (start <= end) {
-                res.push(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`);
-                start.setDate(start.getDate() + 1);
-            }
-            return res;
+            let a = new Date(Math.min(new Date(s).getTime(), new Date(e).getTime()));
+            let b = new Date(Math.max(new Date(s).getTime(), new Date(e).getTime()));
+            let r = [];
+            while (a <= b) { r.push(fmt(a)); a.setDate(a.getDate()+1); }
+            return r;
         }
 
-        function getCellFromPoint(x, y) {
+        function cellAt(x, y) {
             const el = document.elementFromPoint(x, y);
-            if (!el) return null;
-            return el.closest('.day:not(.hide)');
+            return el ? el.closest('.day:not(.hide)') : null;
         }
 
-        /* ========== 鼠标拖拽视觉更新 ========== */
-        function updateDrag(cur) {
+        function highlightRange(start, end) {
             document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
-            if ((!isDragging && touchMode !== 'drag-select') || (!dragStart && !touchStartCell)) return;
-            const start = isDragging ? dragStart : touchStartCell?.dataset.date;
-            if (!start) return;
-            getRange(start, cur).forEach(d => {
+            if (!start || !end) return;
+            getRange(start, end).forEach(d => {
                 const c = calGrid.querySelector(`.day[data-date="${d}"]`);
                 if (c) c.classList.add('drag');
             });
         }
 
-        function commitDrag(end) {
-            const start = isDragging ? dragStart : (touchStartCell?.dataset.date);
-            const wasSel = isDragging ? dragWasSel : touchStartWasSel;
-            if (!start || !end) {
-                isDragging = false;
-                dragStart = null;
-                return;
-            }
-            const dates = getRange(start, end);
-            dates.forEach(d => wasSel ? selected.delete(d) : selected.add(d));
-            isDragging = false;
-            dragStart = null;
+        function commitRange(start, end, wasSel) {
+            if (!start || !end) return;
+            getRange(start, end).forEach(d => wasSel ? selected.delete(d) : selected.add(d));
             document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
             syncUI();
         }
 
-        /* ========== 触摸事件处理 ========== */
+        function syncUI() {
+            document.querySelectorAll('.day').forEach(c => {
+                if (c.dataset.date) c.classList.toggle('sel', selected.has(c.dataset.date));
+            });
+        }
 
-        // 阻止 touchmove 的默认滚动行为（仅在拖拽选择模式下）
-        calScroll.addEventListener('touchmove', function (e) {
-            if (touchMode === 'drag-select') {
-                e.preventDefault();
+        /* ========== 鼠标事件 ========== */
+        calGrid.addEventListener('mousedown', (e) => {
+            // 【关键修复】如果是触摸后合成的鼠标事件，直接忽略，防止撤销触摸的选择
+            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) {
+                return;
             }
-        }, { passive: false });
 
-        calGrid.addEventListener('touchstart', function (e) {
-            const touch = e.touches[0];
+            if (e.button !== 0) return;
             const cell = e.target.closest('.day:not(.hide)');
             if (!cell) return;
 
-            // 记录初始状态
-            touchStartX = touch.clientX;
-            touchStartY = touch.clientY;
-            touchStartCell = cell;
-            touchStartWasSel = cell.classList.contains('sel');
-            touchLastCell = cell;
+            e.preventDefault();
+            mouseDown = true;
+            mouseDragStart = cell.dataset.date;
+            mouseWasSel = cell.classList.contains('sel');
+            mouseLastHover = mouseDragStart;
+            highlightRange(mouseDragStart, mouseDragStart);
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!mouseDown) return;
+            // 同样忽略触摸合成的鼠标移动
+            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) return;
+            
+            const cell = cellAt(e.clientX, e.clientY);
+            if (cell && cell.dataset.date) {
+                mouseLastHover = cell.dataset.date;
+                highlightRange(mouseDragStart, mouseLastHover);
+            }
+            const r = calScroll.getBoundingClientRect();
+            if (e.clientY < r.top + 30) calScroll.scrollTop -= 12;
+            else if (e.clientY > r.bottom - 30) calScroll.scrollTop += 12;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!mouseDown) return;
+            // 同样忽略触摸合成的鼠标抬起
+            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) {
+                mouseDown = false;
+                mouseDragStart = null;
+                return;
+            }
+            commitRange(mouseDragStart, mouseLastHover, mouseWasSel);
+            mouseDown = false;
+            mouseDragStart = null;
+        });
+
+        calGrid.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        /* ========== 触摸事件 ========== */
+
+        calScroll.addEventListener('touchmove', (e) => {
+            if (touchDragMode) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        calGrid.addEventListener('touchstart', (e) => {
+            const t = e.touches[0];
+            const cell = e.target.closest('.day:not(.hide)');
+            if (!cell) return;
+
+            touchActive = true;
+            touchDragMode = false;
             touchMoved = false;
-            touchMode = 'pending';
+            touchStartX = t.clientX;
+            touchStartY = t.clientY;
+            touchDragStart = cell.dataset.date;
+            touchWasSel = cell.classList.contains('sel');
+            touchLastHover = touchDragStart;
 
-            // 启动长按计时器
-            touchLongPressTimer = setTimeout(() => {
-                if (touchMode !== 'pending') return;
-                // 触发长按 → 进入拖拽选择模式
-                touchMode = 'drag-select';
+            touchTimer = setTimeout(() => {
+                if (!touchActive) return;
+                touchDragMode = true;
 
-                // 触觉反馈（如果支持）
                 if (navigator.vibrate) navigator.vibrate(30);
 
-                // 视觉反馈：起始格子高亮
                 cell.classList.add('pressing');
                 setTimeout(() => cell.classList.remove('pressing'), 150);
 
-                updateDrag(cell.dataset.date);
-            }, LONG_PRESS_DELAY);
+                calScroll.classList.add('no-touch-scroll');
+
+                highlightRange(touchDragStart, touchDragStart);
+            }, LONG_PRESS_MS);
 
         }, { passive: true });
 
-        calGrid.addEventListener('touchmove', function (e) {
-            if (touchMode !== 'pending' && touchMode !== 'drag-select') return;
+        calGrid.addEventListener('touchmove', (e) => {
+            if (!touchActive) return;
+            const t = e.touches[0];
+            const dx = t.clientX - touchStartX;
+            const dy = t.clientY - touchStartY;
 
-            const touch = e.touches[0];
-            const dx = touch.clientX - touchStartX;
-            const dy = touch.clientY - touchStartY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (touchMode === 'pending') {
-                // 还未判定模式：如果移动超过阈值，判定为滑动（交给浏览器原生滚动）
-                if (dist > TOUCH_MOVE_THRESHOLD) {
-                    // 取消长按
-                    clearTimeout(touchLongPressTimer);
-                    touchLongPressTimer = null;
-                    touchMode = 'scroll';
+            if (!touchDragMode) {
+                if (Math.sqrt(dx*dx + dy*dy) > MOVE_THRESHOLD) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
                     touchMoved = true;
                 }
+                return;
             }
 
-            if (touchMode === 'drag-select') {
-                // 拖拽选择模式：阻止滚动，追踪手指位置
-                e.preventDefault();
+            e.preventDefault();
 
-                const cell = getCellFromPoint(touch.clientX, touch.clientY);
-                if (cell && cell.dataset.date && cell !== touchLastCell) {
-                    touchLastCell = cell;
-                    updateDrag(cell.dataset.date);
-                }
+            const cell = cellAt(t.clientX, t.clientY);
+            if (cell && cell.dataset.date) {
+                touchLastHover = cell.dataset.date;
+                highlightRange(touchDragStart, touchLastHover);
+            }
 
-                // 自动滚动：手指接近可视区域边缘时
-                const r = calScroll.getBoundingClientRect();
-                if (touch.clientY < r.top + 40) {
-                    calScroll.scrollTop -= 8;
-                    // 重新检测当前格子
-                    requestAnimationFrame(() => {
-                        const c2 = getCellFromPoint(touch.clientX, touch.clientY);
-                        if (c2 && c2.dataset.date) {
-                            touchLastCell = c2;
-                            updateDrag(c2.dataset.date);
-                        }
-                    });
-                } else if (touch.clientY > r.bottom - 40) {
-                    calScroll.scrollTop += 8;
-                    requestAnimationFrame(() => {
-                        const c2 = getCellFromPoint(touch.clientX, touch.clientY);
-                        if (c2 && c2.dataset.date) {
-                            touchLastCell = c2;
-                            updateDrag(c2.dataset.date);
-                        }
-                    });
-                }
+            const r = calScroll.getBoundingClientRect();
+            if (t.clientY < r.top + 40) {
+                calScroll.scrollTop -= 8;
+                requestAnimationFrame(() => {
+                    const c2 = cellAt(t.clientX, t.clientY);
+                    if (c2 && c2.dataset.date) {
+                        touchLastHover = c2.dataset.date;
+                        highlightRange(touchDragStart, touchLastHover);
+                    }
+                });
+            } else if (t.clientY > r.bottom - 40) {
+                calScroll.scrollTop += 8;
+                requestAnimationFrame(() => {
+                    const c2 = cellAt(t.clientX, t.clientY);
+                    if (c2 && c2.dataset.date) {
+                        touchLastHover = c2.dataset.date;
+                        highlightRange(touchDragStart, touchLastHover);
+                    }
+                });
             }
 
         }, { passive: false });
 
-        calGrid.addEventListener('touchend', function (e) {
-            // 清除长按计时器
-            clearTimeout(touchLongPressTimer);
-            touchLongPressTimer = null;
+        calGrid.addEventListener('touchend', () => {
+            // 【关键修复】记录触摸结束时间，阻断后续合成的鼠标事件
+            lastTouchEndTime = Date.now();
 
-            if (touchMode === 'drag-select') {
-                // 拖拽选择结束，提交选择
-                const endCell = touchLastCell || touchStartCell;
-                if (endCell && endCell.dataset.date) {
-                    commitDrag(endCell.dataset.date);
-                }
-                touchMode = null;
+            clearTimeout(touchTimer);
+            touchTimer = null;
 
-            } else if (touchMode === 'pending' || touchMode === 'scroll') {
-                // 短按（未移动超过阈值）→ 切换选中
-                if (!touchMoved && touchStartCell && touchStartCell.dataset.date) {
-                    const ds = touchStartCell.dataset.date;
-                    if (selected.has(ds)) {
-                        selected.delete(ds);
-                    } else {
-                        selected.add(ds);
-                    }
-                    syncUI();
-                }
-                // touchMode === 'scroll' 时不做任何操作，交给浏览器原生滚动
-                touchMode = null;
+            if (touchDragMode) {
+                commitRange(touchDragStart, touchLastHover, touchWasSel);
+                calScroll.classList.remove('no-touch-scroll');
+            } else if (!touchMoved && touchDragStart) {
+                if (selected.has(touchDragStart)) selected.delete(touchDragStart);
+                else selected.add(touchDragStart);
+                syncUI();
             }
+
+            touchActive = false;
+            touchDragMode = false;
+            touchDragStart = null;
         });
 
-        calGrid.addEventListener('touchcancel', function () {
-            clearTimeout(touchLongPressTimer);
-            touchLongPressTimer = null;
-            document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
-            document.querySelectorAll('.day.pressing').forEach(c => c.classList.remove('pressing'));
-            touchMode = null;
+        calGrid.addEventListener('touchcancel', () => {
+            // 取消时也要记录时间
+            lastTouchEndTime = Date.now();
+            
+            clearTimeout(touchTimer);
+            touchTimer = null;
+            touchActive = false;
+            touchDragMode = false;
+            touchDragStart = null;
+            calScroll.classList.remove('no-touch-scroll');
+            document.querySelectorAll('.day.drag,.day.pressing').forEach(c =>
+                c.classList.remove('drag','pressing'));
         });
 
         /* ========== 渲染日历 ========== */
         function renderCal(cStart, cEnd) {
             calGrid.innerHTML = '';
-            const start = cStart || new Date(today.getFullYear(), today.getMonth() - 3, 1);
-            const end = cEnd || new Date(today.getFullYear(), today.getMonth() + 6, 0);
+            const start = cStart || new Date(today.getFullYear(), today.getMonth()-3, 1);
+            const end = cEnd || new Date(today.getFullYear(), today.getMonth()+6, 0);
             let cur = new Date(start), lastM = -1;
 
-            const off = cur.getDay() === 0 ? 6 : cur.getDay() - 1;
-            for (let i = 0; i < off + 21; i++) {
+            const off = cur.getDay() === 0 ? 6 : cur.getDay()-1;
+            for (let i = 0; i < off+21; i++) {
                 const d = document.createElement('div');
                 d.className = 'day hide';
                 calGrid.appendChild(d);
@@ -471,50 +421,27 @@
 
             while (cur <= end) {
                 const y = cur.getFullYear(), m = cur.getMonth(), dt = cur.getDate();
-                const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(dt).padStart(2, '0')}`;
+                const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(dt).padStart(2,'0')}`;
                 const cell = document.createElement('div');
                 cell.className = 'day';
                 cell.textContent = dt;
                 cell.dataset.date = ds;
 
-                const mainMonth = start.getMonth();
-                if (m !== mainMonth) {
-                    cell.classList.add('out-of-month');
-                }
+                if (m !== start.getMonth()) cell.classList.add('out-of-month');
 
                 if (m !== lastM) {
                     cell.classList.add('ph');
-                    cell.dataset.m = `${m + 1}月`;
+                    cell.dataset.m = `${m+1}月`;
                     lastM = m;
                 }
 
-                if (ds === todayStr) {
-                    cell.classList.add('today');
-                    todayCell = cell;
-                }
-
+                if (ds === todayStr) { cell.classList.add('today'); todayCell = cell; }
                 if (selected.has(ds)) cell.classList.add('sel');
                 if (holidays.has(ds)) cell.classList.add('holiday');
                 if (weekendWorkdays.has(ds)) cell.classList.add('weekend-work');
 
-                // 鼠标事件
-                cell.onmousedown = (e) => {
-                    e.preventDefault();
-                    isDragging = true;
-                    dragStart = ds;
-                    lastHover = ds;
-                    dragWasSel = cell.classList.contains('sel');
-                    updateDrag(ds);
-                };
-                cell.onmouseover = () => {
-                    if (isDragging) {
-                        lastHover = ds;
-                        updateDrag(ds);
-                    }
-                };
-
                 calGrid.appendChild(cell);
-                cur.setDate(cur.getDate() + 1);
+                cur.setDate(cur.getDate()+1);
             }
 
             for (let i = 0; i < 28; i++) {
@@ -525,80 +452,43 @@
 
             setTimeout(() => {
                 if (todayCell) {
-                    const scrollTarget = todayCell.offsetTop - (calScroll.clientHeight / 2) + (todayCell.offsetHeight / 2);
-                    calScroll.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+                    const st = todayCell.offsetTop - (calScroll.clientHeight/2) + (todayCell.offsetHeight/2);
+                    calScroll.scrollTo({ top: st, behavior: 'smooth' });
                 }
             }, 50);
 
-            const scrollContainer = document.querySelector('.cal-scroll');
-            const calTitle = document.getElementById('calTitle');
-
-            if (scrollContainer && calTitle) {
-                scrollContainer.removeEventListener('scroll', updateCalTitle);
-                scrollContainer.addEventListener('scroll', updateCalTitle);
-                updateCalTitle();
-            }
+            calScroll.removeEventListener('scroll', updateCalTitle);
+            calScroll.addEventListener('scroll', updateCalTitle);
+            updateCalTitle();
         }
 
         function updateCalTitle() {
-            const scrollContainer = document.querySelector('.cal-scroll');
-            const calTitle = document.getElementById('calTitle');
-            if (!scrollContainer || !calTitle) return;
-
-            const containerTop = scrollContainer.getBoundingClientRect().top;
+            const containerTop = calScroll.getBoundingClientRect().top;
             const triggerTop = containerTop + 150;
-
             const days = document.querySelectorAll('.day');
             if (!days.length) return;
 
             let curYear, curMonth;
-
             for (let i = 0; i < days.length; i++) {
-                const day = days[i];
-                const dayTop = day.getBoundingClientRect().top;
+                const dayTop = days[i].getBoundingClientRect().top;
                 if (dayTop < triggerTop) continue;
-                const dateStr = day.dataset.date;
-                if (dateStr) { [curYear, curMonth] = dateStr.split('-'); }
+                const ds = days[i].dataset.date;
+                if (ds) { [curYear, curMonth] = ds.split('-'); }
                 break;
             }
-
             if (!curYear || !curMonth) return;
 
-            const targetYM = `${curYear}-${curMonth}`;
-            for (let i = 0; i < days.length; i++) {
-                const day = days[i];
-                const dateStr = day.dataset.date;
-                if (dateStr && dateStr.startsWith(targetYM)) {
-                    day.classList.remove('out-of-month');
-                } else {
-                    day.classList.add('out-of-month');
-                }
-            }
+            const ym = `${curYear}-${curMonth}`;
+            days.forEach(day => {
+                const ds = day.dataset.date;
+                if (ds && ds.startsWith(ym)) day.classList.remove('out-of-month');
+                else day.classList.add('out-of-month');
+            });
 
             calTitle.innerText = `${curYear}年${parseInt(curMonth)}月`;
         }
 
-        /* ========== 鼠标全局事件 ========== */
-        document.onmouseup = () => { if (isDragging) commitDrag(lastHover || dragStart); };
-        document.onmousemove = (e) => {
-            if (!isDragging) return;
-            const r = calScroll.getBoundingClientRect();
-            if (e.clientY < r.top + 40) calScroll.scrollTop -= 10;
-            else if (e.clientY > r.bottom - 40) calScroll.scrollTop += 10;
-        };
-
-        /* ========== UI 同步 ========== */
-        function syncUI() {
-            document.querySelectorAll('.day').forEach(c => {
-                if (c.dataset.date) {
-                    c.classList.toggle('sel', selected.has(c.dataset.date));
-                }
-            });
-        }
-
-        /* ========== 初始化 ========== */
         renderCal();
     </script>
 </body>
-
 </html>
