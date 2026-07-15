@@ -1,1242 +1,604 @@
 <!DOCTYPE html>
-
 <html lang="zh-CN">
 
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>日历场次计算器</title>
-
     <style>
         :root {
-
             --primary: #3b82f6;
-
             --bg: #f3f4f6;
-
             --card: #fff;
-
             --border: #e5e7eb;
-
         }
 
         * {
-
             box-sizing: border-box;
-
             margin: 0;
-
             padding: 0;
-
         }
 
         body {
-
             font-family: system-ui, sans-serif;
-
             background: var(--bg);
-
             display: flex;
-
             justify-content: center;
-
             align-items: center;
-
             min-height: 100vh;
-
             color: #1f2937;
-
-            /* min-width: 1000px; */
-
         }
 
         .app {
-
             display: flex;
-
             height: 600px;
-
             background: var(--card);
-
             border-radius: 12px;
-
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-
             overflow: hidden;
-
             position: relative;
-
         }
 
         .cal-panel {
-
             width: 350px;
-
             min-width: 0;
-
             border-right: 1px solid var(--border);
-
             display: flex;
-
             flex-direction: column;
-
             background: #fafafa;
-
             transition: width 0.3s ease, height 0.3s ease;
-
             overflow: hidden;
-
         }
 
         .cal-header {
-
             padding: 15px;
-
             font-weight: bold;
-
             border-bottom: 1px solid var(--border);
-
             white-space: nowrap;
-
             display: flex;
-
             justify-content: space-between;
-
             align-items: center;
-
         }
 
         .cal-title {
-
             text-align: center;
-
             font-size: 16px;
-
             font-weight: bold;
-
             padding: 10px 0;
-
             background: #fff;
-
             border-bottom: 1px solid var(--border);
-
         }
 
         .weekdays {
-
             display: grid;
-
             grid-template-columns: repeat(7, 1fr);
-
             text-align: center;
-
             font-size: 13px;
-
             color: #6b7280;
-
             font-weight: 600;
-
             padding: 10px 10px 5px;
-
             border-bottom: 1px solid var(--border);
-
             white-space: nowrap;
-
         }
 
         .cal-scroll {
-
             flex: 1;
-
             overflow-y: auto;
-
             padding: 10px;
-
             scrollbar-width: none;
-
             scrollbar-color: #d1d5db #f9fafb;
-
         }
 
         .cal-scroll::-webkit-scrollbar {
-
             width: 6px;
-
         }
 
         .cal-scroll::-webkit-scrollbar-track {
-
             background: transparent;
-
         }
 
         .cal-scroll::-webkit-scrollbar-thumb {
-
             background: #d1d5db;
-
             border-radius: 3px;
-
         }
 
-        /* 如果浏览器支持 Firefox 的滚动条属性，说明它是 Firefox，应用专属样式 */
-
         @supports (scrollbar-width: thin) {
-
             .cal-scroll {
-
                 scrollbar-width: thin;
-
                 scrollbar-gutter: stable;
-
             }
 
             .weekdays {
-
                 overflow-y: auto;
-
                 scrollbar-gutter: stable;
-
                 scrollbar-width: thin;
-
             }
-
         }
 
         .grid {
-
             display: grid;
-
             grid-template-columns: repeat(7, 1fr);
-
             gap: 6px;
-
         }
 
         .day {
-
             padding: 10px 0;
-
             cursor: pointer;
-
             border-radius: 6px;
-
             font-size: 14px;
-
             text-align: center;
-
             transition: 0.2s;
-
             user-select: none;
-
             position: relative;
-
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
         }
 
         .day:hover {
-
             background: #e5e7eb;
-
         }
 
         .day.sel {
-
             background: var(--primary);
-
             color: #fff;
-
         }
 
         .day.out-of-month {
-
             color: #aaa !important;
-
             opacity: 0.6;
-
         }
 
         .day.out-of-month.selected {
-
             background: #e0e0e0 !important;
-
             color: #333 !important;
-
             opacity: 1;
-
         }
 
         .day.drag {
-
             background: #93c5fd;
-
             color: #fff;
-
         }
 
         .day.pressing {
-
             background: #d1d5db !important;
-
             transition: background 0.1s;
-
         }
 
         .day.today {
-
             border: 1px solid var(--primary);
-
         }
 
         .day.ph::before {
-
             content: attr(data-m);
-
             position: absolute;
-
             top: -2px;
-
             right: 2px;
-
             font-size: 9px;
-
             color: var(--primary);
-
             font-weight: bold;
-
         }
 
         .day.sel.ph::before {
-
             color: #fff;
-
         }
 
         .day.hide {
-
             visibility: hidden;
-
             pointer-events: none;
-
         }
 
         .day::after {
-
             content: '';
-
             position: absolute;
-
             bottom: 2px;
-
-            /* 稍微增加底部距离 */
-
             left: 50%;
-
             transform: translateX(-50%);
-
             font-size: 10px;
-
-            /* 小字展示 */
-
             font-weight: bold;
-
             line-height: 1;
-
-            /* 默认不带背景色 */
-
             background: transparent;
-
         }
-
-        /* 公休日样式：默认蓝色 */
 
         .day.holiday::after {
-
             content: '休';
-
             color: #3b82f6;
-
         }
-
-        /* 周末班样式：默认紫色 */
 
         .day.weekend-work::after {
-
             content: '班';
-
             color: #a87bf5;
-
         }
-
-        /* 公休日选中：变为醒目的红色，与选中背景形成对比 */
 
         .day.sel.holiday::after {
-
             color: #ef4444;
-
         }
-
-        /* 周末班选中：变为明亮的橙色，与公休日选中明显区分 */
 
         .day.sel.weekend-work::after {
-
             color: #f59e0b;
-
-        }
-
-        /* ====== 新增：触摸选择模式高亮样式 ====== */
-
-        .day.touch-sel {
-
-            outline: 2px solid var(--primary);
-
-            outline-offset: -2px;
-
-        }
-
-        .toggle-btn {
-
-            position: absolute;
-
-            top: 50%;
-
-            left: 350px;
-
-            transform: translateY(-50%);
-
-            z-index: 10;
-
-            width: 10px;
-
-            height: 60px;
-
-            background: var(--card);
-
-            border: 1px solid var(--border);
-
-            border-left: none;
-
-            border-radius: 0 8px 8px 0;
-
-            cursor: pointer;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            font-size: 8px;
-
-            color: #6b7280;
-
-        }
-
-        .toggle-btn:hover {
-
-            background: #f3f4f6;
-
-        }
-
-        .right-panel {
-
-            flex: 1;
-
-            display: flex;
-
-            flex-direction: column;
-
-            padding: 20px;
-
-            overflow-y: auto;
-
-            min-width: 0;
-
-        }
-
-        .panel-title {
-
-            font-size: 18px;
-
-            font-weight: bold;
-
-            margin-bottom: 15px;
-
-            color: #374151;
-
-        }
-
-        .sel-list {
-
-            flex: 1;
-
-            overflow-y: auto;
-
-            border: 1px solid var(--border);
-
-            border-radius: 8px;
-
-            padding: 10px;
-
-            margin-bottom: 15px;
-
-            background: #fafafa;
-
-        }
-
-        .sel-item {
-
-            padding: 6px 10px;
-
-            margin: 4px 0;
-
-            background: #e0f2fe;
-
-            border-radius: 6px;
-
-            font-size: 13px;
-
-            display: flex;
-
-            justify-content: space-between;
-
-            align-items: center;
-
-        }
-
-        .sel-item .remove-btn {
-
-            cursor: pointer;
-
-            color: #ef4444;
-
-            font-weight: bold;
-
-            padding: 2px 6px;
-
-            border-radius: 4px;
-
-        }
-
-        .sel-item .remove-btn:hover {
-
-            background: #fee2e2;
-
-        }
-
-        .summary {
-
-            padding: 15px;
-
-            background: #f0fdf4;
-
-            border-radius: 8px;
-
-            border: 1px solid #bbf7d0;
-
-            font-size: 14px;
-
-        }
-
-        .summary h3 {
-
-            color: #166534;
-
-            margin-bottom: 8px;
-
-        }
-
-        .summary p {
-
-            margin: 4px 0;
-
-            color: #15803d;
-
-        }
-
-        .btn-row {
-
-            display: flex;
-
-            gap: 8px;
-
-            margin-bottom: 15px;
-
-        }
-
-        .btn {
-
-            padding: 8px 16px;
-
-            border: none;
-
-            border-radius: 6px;
-
-            cursor: pointer;
-
-            font-size: 13px;
-
-            font-weight: 600;
-
-            transition: 0.2s;
-
-        }
-
-        .btn-primary {
-
-            background: var(--primary);
-
-            color: #fff;
-
-        }
-
-        .btn-primary:hover {
-
-            background: #2563eb;
-
-        }
-
-        .btn-secondary {
-
-            background: #e5e7eb;
-
-            color: #374151;
-
-        }
-
-        .btn-secondary:hover {
-
-            background: #d1d5db;
-
-        }
-
-        .btn-danger {
-
-            background: #fee2e2;
-
-            color: #ef4444;
-
-        }
-
-        .btn-danger:hover {
-
-            background: #fecaca;
-
-        }
-
-        .cal-panel.collapsed {
-
-            width: 0;
-
-            border-right: none;
-
-        }
-
-        .cal-panel.collapsed+.toggle-btn {
-
-            left: 0;
-
         }
     </style>
-
 </head>
 
 <body>
 
-    <div class="app">
+    <div class="app mobile-collapsed" id="app">
 
-        <div class="cal-panel" id="calPanel">
-
+        <div class="cal-panel">
             <div class="cal-header">
-
-                <button class="btn btn-secondary" onclick="changeMonth(-1)">◀</button>
-
-                <span id="monthLabel"></span>
-
-                <button class="btn btn-secondary" onclick="changeMonth(1)">▶</button>
-
+                <span>🗓️ 日历</span>
             </div>
-
-            <div class="cal-title" id="calTitle">日历场次计算器</div>
-
+            <div id="calTitle" class="cal-title">2026年7月</div>
             <div class="weekdays">
-
-                <div>日</div>
                 <div>一</div>
                 <div>二</div>
                 <div>三</div>
                 <div>四</div>
                 <div>五</div>
                 <div>六</div>
-
+                <div>日</div>
             </div>
-
             <div class="cal-scroll" id="calScroll">
-
                 <div class="grid" id="calGrid"></div>
-
             </div>
-
-        </div>
-
-        <div class="toggle-btn" id="toggleBtn" onclick="togglePanel()">◀</div>
-
-        <div class="right-panel">
-
-            <div class="panel-title">已选日期</div>
-
-            <div class="btn-row">
-
-                <button class="btn btn-primary" onclick="selectAll()">全选本月</button>
-
-                <button class="btn btn-secondary" onclick="selectWorkdays()">选工作日</button>
-
-                <button class="btn btn-danger" onclick="clearAll()">清空</button>
-
-            </div>
-
-            <div class="sel-list" id="selList">
-
-                <p style="color:#9ca3af;text-align:center;padding:20px;">点击左侧日历选择日期</p>
-
-            </div>
-
-            <div class="summary" id="summary">
-
-                <h3>统计</h3>
-
-                <p>已选: 0 天</p>
-
-            </div>
-
         </div>
 
     </div>
 
     <script>
+        const calGrid = document.getElementById('calGrid');
+        const calScroll = document.getElementById('calScroll');
+        let selected = new Set();
+        let holidays = new Set();
+        let weekendWorkdays = new Set();
+        const specialSessMap = new Map();
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-        /* ================================================================
-           iPhone 风格触摸选择逻辑
-           ----------------------------------------------------------------
-           · 短按滑动 → 正常滚动日历
-           · 长按（≥400ms）→ 进入连续选择模式，手指拖过日期自动选中/取消
-           · 手指抬起 → 退出选择模式，恢复普通滚动
-           ================================================================ */
+        /* ========== 鼠标拖拽状态 ========== */
+        let isDragging = false;
+        let dragStart = null;
+        let dragWasSel = false;
+        let lastHover = null;
 
-        let currentYear, currentMonth;
-        let selectedDates = new Set();
+        /* ========== 触摸状态 ========== */
+        let touchMode = null;            // null | 'pending' | 'scroll' | 'drag-select'
+        let touchStartX = 0, touchStartY = 0;
+        let touchStartCell = null;       // 触摸起始的日期格子
+        let touchStartWasSel = false;    // 起始格子是否已选中
+        let touchLongPressTimer = null;
+        let touchLastCell = null;        // 触摸拖拽最后经过的格子
+        let touchMoved = false;          // 是否发生了有效移动（用于区分短按和滑动）
 
-        // 节假日数据（示例）
-        const holidays = {
-            '2025-01-01': '元旦',
-            '2025-01-28': '除夕', '2025-01-29': '春节', '2025-01-30': '春节', '2025-01-31': '春节',
-            '2025-02-01': '春节', '2025-02-02': '春节', '2025-02-03': '春节', '2025-02-04': '春节',
-            '2025-04-04': '清明', '2025-04-05': '清明', '2025-04-06': '清明',
-            '2025-05-01': '劳动节', '2025-05-02': '劳动节', '2025-05-03': '劳动节', '2025-05-04': '劳动节', '2025-05-05': '劳动节',
-            '2025-05-31': '端午', '2025-06-01': '端午', '2025-06-02': '端午',
-            '2025-10-01': '国庆', '2025-10-02': '国庆', '2025-10-03': '国庆', '2025-10-04': '国庆',
-            '2025-10-05': '国庆', '2025-10-06': '国庆', '2025-10-07': '国庆',
-        };
+        const TOUCH_MOVE_THRESHOLD = 10; // 滑动判定阈值(px)
+        const LONG_PRESS_DELAY = 400;    // 长按延迟(ms)
 
-        // 周末调休上班日
-        const weekendWork = {
-            '2025-01-26': true,
-            '2025-02-08': true,
-            '2025-04-27': true,
-            '2025-09-28': true,
-            '2025-10-11': true,
-        };
+        /* ========== 工具函数 ========== */
+        const toTime = s => new Date(s).getTime();
 
-        // ========== 触摸选择状态变量 ==========
-        let isSelecting = false;          // 是否处于长按选择模式
-        let longPressTimer = null;        // 长按检测定时器
-        let pressStartX = 0;              // 按下时 X 坐标
-        let pressStartY = 0;              // 按下时 Y 坐标
-        let isQuickSwipe = false;         // 是否为快速滑动（仅滚动）
-        let selectMode = null;            // 'add' | 'remove'：进入选择模式时的操作方向
-        let lastSelectedElement = null;   // 上一个处理的日期元素（防止重复触发）
-        let autoScrollRAF = null;         // 自动滚动动画帧 ID
-        let pressedElement = null;        // 当前被按压的日期元素（视觉反馈用）
+        function getRange(s, e) {
+            let start = new Date(Math.min(toTime(s), toTime(e)));
+            let end = new Date(Math.max(toTime(s), toTime(e)));
+            let res = [];
+            while (start <= end) {
+                res.push(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`);
+                start.setDate(start.getDate() + 1);
+            }
+            return res;
+        }
 
-        const LONG_PRESS_MS = 400;        // 长按判定阈值（毫秒）
-        const SWIPE_THRESHOLD = 10;       // 滑动判定阈值（像素）
-        const AUTO_SCROLL_ZONE = 40;      // 自动滚动触发区域（像素，距容器顶/底）
-        const AUTO_SCROLL_SPEED = 6;      // 自动滚动速度（像素/帧）
+        function getCellFromPoint(x, y) {
+            const el = document.elementFromPoint(x, y);
+            if (!el) return null;
+            return el.closest('.day:not(.hide)');
+        }
 
-        /**
-         * 初始化触摸手势系统
-         * 在日历网格上监听 pointerdown，在 document 上监听 move/up
-         */
-        function initTouchGestures() {
-            const grid = document.getElementById('calGrid');
-            const scroll = document.getElementById('calScroll');
-
-            // ---- pointerdown：在网格上按下 ----
-            grid.addEventListener('pointerdown', function (e) {
-                const dayEl = e.target.closest('.day');
-                if (!dayEl || dayEl.classList.contains('hide')) return;
-
-                // 仅处理触摸和鼠标左键
-                if (e.pointerType === 'mouse' && e.button !== 0) return;
-
-                pressStartX = e.clientX;
-                pressStartY = e.clientY;
-                isQuickSwipe = false;
-                lastSelectedElement = null;
-
-                // 按压视觉反馈
-                dayEl.classList.add('pressing');
-                pressedElement = dayEl;
-
-                // 启动长按定时器
-                longPressTimer = setTimeout(function () {
-                    startSelecting(dayEl);
-                }, LONG_PRESS_MS);
-
-                // 捕获指针，确保 move/up 事件即使移出元素也能收到
-                grid.setPointerCapture(e.pointerId);
+        /* ========== 鼠标拖拽视觉更新 ========== */
+        function updateDrag(cur) {
+            document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
+            if ((!isDragging && touchMode !== 'drag-select') || (!dragStart && !touchStartCell)) return;
+            const start = isDragging ? dragStart : touchStartCell?.dataset.date;
+            if (!start) return;
+            getRange(start, cur).forEach(d => {
+                const c = calGrid.querySelector(`.day[data-date="${d}"]`);
+                if (c) c.classList.add('drag');
             });
-
-            // ---- pointermove：在网格上移动 ----
-            grid.addEventListener('pointermove', function (e) {
-                // 如果不在按下状态，忽略
-                if (longPressTimer === null && !isSelecting) return;
-
-                var dx = e.clientX - pressStartX;
-                var dy = e.clientY - pressStartY;
-
-                if (isSelecting) {
-                    // ===== 选择模式：阻止滚动，处理连续选择 =====
-                    e.preventDefault();
-                    handleSelectMove(e);
-
-                } else if (longPressTimer) {
-                    // ===== 按下但未触发长按：判断是否快速滑动 =====
-                    if (Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_THRESHOLD) {
-                        // 移动距离超阈值 → 判定为快速滑动
-                        clearTimeout(longPressTimer);
-                        longPressTimer = null;
-                        isQuickSwipe = true;
-
-                        // 清除按压视觉反馈
-                        if (pressedElement) {
-                            pressedElement.classList.remove('pressing');
-                            pressedElement = null;
-                        }
-                        // 不阻止默认行为 → 浏览器正常滚动页面
-                    }
-                }
-            });
-
-            // ---- pointerup：在网格上抬起 ----
-            grid.addEventListener('pointerup', function (e) {
-                var dx = e.clientX - pressStartX;
-                var dy = e.clientY - pressStartY;
-                var dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (longPressTimer) {
-                    // 长按定时器还没触发 → 短按
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-
-                    // 清除按压反馈
-                    if (pressedElement) {
-                        pressedElement.classList.remove('pressing');
-                        pressedElement = null;
-                    }
-
-                    // 短按且移动距离小 → 当作单击，切换日期选中状态
-                    if (dist < SWIPE_THRESHOLD) {
-                        var dayEl = e.target.closest('.day');
-                        if (dayEl && !dayEl.classList.contains('hide')) {
-                            toggleDate(dayEl);
-                        }
-                    }
-                }
-
-                if (isSelecting) {
-                    stopSelecting();
-                }
-
-                isQuickSwipe = false;
-                pressedElement = null;
-            });
-
-            // ---- pointercancel：取消（如来电中断等） ----
-            grid.addEventListener('pointercancel', function () {
-                cancelAll();
-            });
-
-            // ---- 全局 pointermove/up：处理指针移出网格后的情况 ----
-            document.addEventListener('pointermove', function (e) {
-                if (!isSelecting) return;
-                e.preventDefault();
-                handleSelectMove(e);
-            }, { passive: false });
-
-            document.addEventListener('pointerup', function () {
-                if (isSelecting) {
-                    stopSelecting();
-                }
-                // 清理残留的长按定时器
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                }
-                if (pressedElement) {
-                    pressedElement.classList.remove('pressing');
-                    pressedElement = null;
-                }
-            });
-
-            // 阻止选择模式下的默认触摸行为（防止页面跟着滚动）
-            grid.addEventListener('touchmove', function (e) {
-                if (isSelecting) {
-                    e.preventDefault();
-                }
-            }, { passive: false });
         }
 
-        /**
-         * 进入选择模式
-         * @param {HTMLElement} startEl - 长按触发的起始日期元素
-         */
-        function startSelecting(startEl) {
-            isSelecting = true;
-
-            // 清除按压视觉反馈
-            if (pressedElement) {
-                pressedElement.classList.remove('pressing');
-                pressedElement = null;
-            }
-
-            // 触觉反馈（设备震动）
-            if (navigator.vibrate) {
-                navigator.vibrate(30);
-            }
-
-            // 根据当前状态决定操作方向：已选则取消，未选则选中
-            selectMode = startEl.classList.contains('sel') ? 'remove' : 'add';
-
-            // 立即对起始元素执行操作
-            applySelectToElement(startEl);
-            lastSelectedElement = startEl;
-
-            // 给起始元素加触摸选择高亮
-            startEl.classList.add('touch-sel');
-
-            // 更新显示
-            updateSelectionUI();
-        }
-
-        /**
-         * 选择模式下的移动处理
-         * 通过 elementFromPoint 找到手指下方的日期元素，执行选中/取消
-         */
-        function handleSelectMove(e) {
-            // 临时隐藏当前高亮元素，防止 elementFromPoint 返回它自身导致闪烁
-            if (lastSelectedElement) {
-                lastSelectedElement.classList.remove('touch-sel');
-            }
-
-            var target = document.elementFromPoint(e.clientX, e.clientY);
-            var dayEl = target ? target.closest('.day') : null;
-
-            if (lastSelectedElement) {
-                lastSelectedElement.classList.add('touch-sel');
-            }
-
-            if (dayEl && !dayEl.classList.contains('hide') && dayEl !== lastSelectedElement) {
-                // 移动到新元素：移除旧元素高亮，处理新元素
-                if (lastSelectedElement) {
-                    lastSelectedElement.classList.remove('touch-sel');
-                }
-                dayEl.classList.add('touch-sel');
-                applySelectToElement(dayEl);
-                lastSelectedElement = dayEl;
-            }
-
-            // 自动滚动：手指靠近容器顶部或底部时自动滚动
-            handleAutoScroll(e.clientY);
-        }
-
-        /**
-         * 对日期元素执行选择/取消操作
-         */
-        function applySelectToElement(el) {
-            var dateStr = el.dataset.date;
-            if (!dateStr) return;
-
-            if (selectMode === 'add') {
-                selectedDates.add(dateStr);
-                el.classList.add('sel');
-            } else {
-                selectedDates.delete(dateStr);
-                el.classList.remove('sel');
-            }
-        }
-
-        /**
-         * 自动滚动逻辑
-         * 手指距容器顶部/底部 AUTO_SCROLL_ZONE 像素内时自动滚动
-         */
-        function handleAutoScroll(clientY) {
-            var scroll = document.getElementById('calScroll');
-            var rect = scroll.getBoundingClientRect();
-
-            var distFromTop = clientY - rect.top;
-            var distFromBottom = rect.bottom - clientY;
-
-            if (distFromTop < AUTO_SCROLL_ZONE && scroll.scrollTop > 0) {
-                scroll.scrollBy({ top: -AUTO_SCROLL_SPEED, behavior: 'auto' });
-                autoScrollRAF = requestAnimationFrame(function () {
-                    handleAutoScroll(clientY);
-                });
-            } else if (distFromBottom < AUTO_SCROLL_ZONE &&
-                scroll.scrollTop < scroll.scrollHeight - scroll.clientHeight) {
-                scroll.scrollBy({ top: AUTO_SCROLL_SPEED, behavior: 'auto' });
-                autoScrollRAF = requestAnimationFrame(function () {
-                    handleAutoScroll(clientY);
-                });
-            } else {
-                if (autoScrollRAF) {
-                    cancelAnimationFrame(autoScrollRAF);
-                    autoScrollRAF = null;
-                }
-            }
-        }
-
-        /**
-         * 退出选择模式
-         */
-        function stopSelecting() {
-            isSelecting = false;
-            selectMode = null;
-            lastSelectedElement = null;
-
-            // 停止自动滚动
-            if (autoScrollRAF) {
-                cancelAnimationFrame(autoScrollRAF);
-                autoScrollRAF = null;
-            }
-
-            // 清除所有触摸选择高亮
-            document.querySelectorAll('.day.touch-sel').forEach(function (el) {
-                el.classList.remove('touch-sel');
-            });
-
-            updateSelectionUI();
-        }
-
-        /**
-         * 取消所有状态（异常中断时使用）
-         */
-        function cancelAll() {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            if (pressedElement) {
-                pressedElement.classList.remove('pressing');
-                pressedElement = null;
-            }
-            stopSelecting();
-        }
-
-        // ========== 原有日历逻辑 ==========
-
-        function formatDate(y, m, d) {
-            return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-        }
-
-        function renderCalendar() {
-            var grid = document.getElementById('calGrid');
-            var label = document.getElementById('monthLabel');
-            grid.innerHTML = '';
-            label.textContent = currentYear + '年' + (currentMonth + 1) + '月';
-
-            var firstDay = new Date(currentYear, currentMonth, 1);
-            var lastDay = new Date(currentYear, currentMonth + 1, 0);
-            var startDow = firstDay.getDay();
-            var daysInMonth = lastDay.getDate();
-
-            // 上月填充
-            var prevLast = new Date(currentYear, currentMonth, 0).getDate();
-            for (var i = startDow - 1; i >= 0; i--) {
-                var d = prevLast - i;
-                var pm = currentMonth - 1;
-                var py = currentYear;
-                if (pm < 0) { pm = 11; py--; }
-                var ds = formatDate(py, pm, d);
-                var el = document.createElement('div');
-                el.className = 'day out-of-month';
-                el.textContent = d;
-                el.dataset.date = ds;
-                if (selectedDates.has(ds)) el.classList.add('sel');
-                el.addEventListener('click', function () { toggleDate(this); });
-                grid.appendChild(el);
-            }
-
-            // 本月日期
-            var today = new Date();
-            for (var d = 1; d <= daysInMonth; d++) {
-                var ds = formatDate(currentYear, currentMonth, d);
-                var el = document.createElement('div');
-                el.className = 'day';
-                el.textContent = d;
-                el.dataset.date = ds;
-
-                if (selectedDates.has(ds)) el.classList.add('sel');
-                if (today.getFullYear() === currentYear &&
-                    today.getMonth() === currentMonth &&
-                    today.getDate() === d) {
-                    el.classList.add('today');
-                }
-                if (holidays[ds]) {
-                    el.classList.add('holiday');
-                    el.setAttribute('data-m', holidays[ds]);
-                    el.classList.add('ph');
-                }
-                if (weekendWork[ds]) {
-                    el.classList.add('weekend-work');
-                }
-
-                el.addEventListener('click', function () { toggleDate(this); });
-                grid.appendChild(el);
-            }
-
-            // 下月填充
-            var total = startDow + daysInMonth;
-            var rem = (7 - total % 7) % 7;
-            for (var d = 1; d <= rem; d++) {
-                var nm = currentMonth + 1;
-                var ny = currentYear;
-                if (nm > 11) { nm = 0; ny++; }
-                var ds = formatDate(ny, nm, d);
-                var el = document.createElement('div');
-                el.className = 'day out-of-month';
-                el.textContent = d;
-                el.dataset.date = ds;
-                if (selectedDates.has(ds)) el.classList.add('sel');
-                el.addEventListener('click', function () { toggleDate(this); });
-                grid.appendChild(el);
-            }
-        }
-
-        function toggleDate(el) {
-            var dateStr = el.dataset.date;
-            if (!dateStr) return;
-            if (selectedDates.has(dateStr)) {
-                selectedDates.delete(dateStr);
-                el.classList.remove('sel');
-            } else {
-                selectedDates.add(dateStr);
-                el.classList.add('sel');
-            }
-            updateSelectionUI();
-        }
-
-        function changeMonth(delta) {
-            currentMonth += delta;
-            if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-            if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-            renderCalendar();
-        }
-
-        function selectAll() {
-            var lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
-            for (var d = 1; d <= lastDay; d++) {
-                selectedDates.add(formatDate(currentYear, currentMonth, d));
-            }
-            renderCalendar();
-            updateSelectionUI();
-        }
-
-        function selectWorkdays() {
-            var lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
-            for (var d = 1; d <= lastDay; d++) {
-                var ds = formatDate(currentYear, currentMonth, d);
-                var dt = new Date(currentYear, currentMonth, d);
-                var dow = dt.getDay();
-                if (holidays[ds]) continue;
-                if ((dow === 0 || dow === 6) && !weekendWork[ds]) continue;
-                selectedDates.add(ds);
-            }
-            renderCalendar();
-            updateSelectionUI();
-        }
-
-        function clearAll() {
-            selectedDates.clear();
-            renderCalendar();
-            updateSelectionUI();
-        }
-
-        function updateSelectionUI() {
-            var list = document.getElementById('selList');
-            var summary = document.getElementById('summary');
-            var sorted = Array.from(selectedDates).sort();
-
-            if (sorted.length === 0) {
-                list.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:20px;">点击左侧日历选择日期</p>';
-                summary.innerHTML = '<h3>统计</h3><p>已选: 0 天</p>';
+        function commitDrag(end) {
+            const start = isDragging ? dragStart : (touchStartCell?.dataset.date);
+            const wasSel = isDragging ? dragWasSel : touchStartWasSel;
+            if (!start || !end) {
+                isDragging = false;
+                dragStart = null;
                 return;
             }
-
-            var html = '';
-            sorted.forEach(function (ds) {
-                html += '<div class="sel-item"><span>' + ds + '</span>' +
-                    '<span class="remove-btn" onclick="removeDate(\'' + ds + '\')">✕</span></div>';
-            });
-            list.innerHTML = html;
-
-            var workdays = sorted.filter(function (ds) {
-                var dt = new Date(ds);
-                var dow = dt.getDay();
-                if (holidays[ds]) return false;
-                if ((dow === 0 || dow === 6) && !weekendWork[ds]) return false;
-                return true;
-            }).length;
-
-            summary.innerHTML = '<h3>统计</h3>' +
-                '<p>已选: ' + sorted.length + ' 天</p>' +
-                '<p>工作日: ' + workdays + ' 天</p>' +
-                '<p>休息日: ' + (sorted.length - workdays) + ' 天</p>';
+            const dates = getRange(start, end);
+            dates.forEach(d => wasSel ? selected.delete(d) : selected.add(d));
+            isDragging = false;
+            dragStart = null;
+            document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
+            syncUI();
         }
 
-        function removeDate(dateStr) {
-            selectedDates.delete(dateStr);
-            renderCalendar();
-            updateSelectionUI();
-        }
+        /* ========== 触摸事件处理 ========== */
 
-        function togglePanel() {
-            var panel = document.getElementById('calPanel');
-            var btn = document.getElementById('toggleBtn');
-            panel.classList.toggle('collapsed');
-            btn.textContent = panel.classList.contains('collapsed') ? '▶' : '◀';
-            if (!panel.classList.contains('collapsed')) {
-                btn.style.left = '350px';
-            } else {
-                btn.style.left = '0';
+        // 阻止 touchmove 的默认滚动行为（仅在拖拽选择模式下）
+        calScroll.addEventListener('touchmove', function (e) {
+            if (touchMode === 'drag-select') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        calGrid.addEventListener('touchstart', function (e) {
+            const touch = e.touches[0];
+            const cell = e.target.closest('.day:not(.hide)');
+            if (!cell) return;
+
+            // 记录初始状态
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            touchStartCell = cell;
+            touchStartWasSel = cell.classList.contains('sel');
+            touchLastCell = cell;
+            touchMoved = false;
+            touchMode = 'pending';
+
+            // 启动长按计时器
+            touchLongPressTimer = setTimeout(() => {
+                if (touchMode !== 'pending') return;
+                // 触发长按 → 进入拖拽选择模式
+                touchMode = 'drag-select';
+
+                // 触觉反馈（如果支持）
+                if (navigator.vibrate) navigator.vibrate(30);
+
+                // 视觉反馈：起始格子高亮
+                cell.classList.add('pressing');
+                setTimeout(() => cell.classList.remove('pressing'), 150);
+
+                updateDrag(cell.dataset.date);
+            }, LONG_PRESS_DELAY);
+
+        }, { passive: true });
+
+        calGrid.addEventListener('touchmove', function (e) {
+            if (touchMode !== 'pending' && touchMode !== 'drag-select') return;
+
+            const touch = e.touches[0];
+            const dx = touch.clientX - touchStartX;
+            const dy = touch.clientY - touchStartY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (touchMode === 'pending') {
+                // 还未判定模式：如果移动超过阈值，判定为滑动（交给浏览器原生滚动）
+                if (dist > TOUCH_MOVE_THRESHOLD) {
+                    // 取消长按
+                    clearTimeout(touchLongPressTimer);
+                    touchLongPressTimer = null;
+                    touchMode = 'scroll';
+                    touchMoved = true;
+                }
+            }
+
+            if (touchMode === 'drag-select') {
+                // 拖拽选择模式：阻止滚动，追踪手指位置
+                e.preventDefault();
+
+                const cell = getCellFromPoint(touch.clientX, touch.clientY);
+                if (cell && cell.dataset.date && cell !== touchLastCell) {
+                    touchLastCell = cell;
+                    updateDrag(cell.dataset.date);
+                }
+
+                // 自动滚动：手指接近可视区域边缘时
+                const r = calScroll.getBoundingClientRect();
+                if (touch.clientY < r.top + 40) {
+                    calScroll.scrollTop -= 8;
+                    // 重新检测当前格子
+                    requestAnimationFrame(() => {
+                        const c2 = getCellFromPoint(touch.clientX, touch.clientY);
+                        if (c2 && c2.dataset.date) {
+                            touchLastCell = c2;
+                            updateDrag(c2.dataset.date);
+                        }
+                    });
+                } else if (touch.clientY > r.bottom - 40) {
+                    calScroll.scrollTop += 8;
+                    requestAnimationFrame(() => {
+                        const c2 = getCellFromPoint(touch.clientX, touch.clientY);
+                        if (c2 && c2.dataset.date) {
+                            touchLastCell = c2;
+                            updateDrag(c2.dataset.date);
+                        }
+                    });
+                }
+            }
+
+        }, { passive: false });
+
+        calGrid.addEventListener('touchend', function (e) {
+            // 清除长按计时器
+            clearTimeout(touchLongPressTimer);
+            touchLongPressTimer = null;
+
+            if (touchMode === 'drag-select') {
+                // 拖拽选择结束，提交选择
+                const endCell = touchLastCell || touchStartCell;
+                if (endCell && endCell.dataset.date) {
+                    commitDrag(endCell.dataset.date);
+                }
+                touchMode = null;
+
+            } else if (touchMode === 'pending' || touchMode === 'scroll') {
+                // 短按（未移动超过阈值）→ 切换选中
+                if (!touchMoved && touchStartCell && touchStartCell.dataset.date) {
+                    const ds = touchStartCell.dataset.date;
+                    if (selected.has(ds)) {
+                        selected.delete(ds);
+                    } else {
+                        selected.add(ds);
+                    }
+                    syncUI();
+                }
+                // touchMode === 'scroll' 时不做任何操作，交给浏览器原生滚动
+                touchMode = null;
+            }
+        });
+
+        calGrid.addEventListener('touchcancel', function () {
+            clearTimeout(touchLongPressTimer);
+            touchLongPressTimer = null;
+            document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
+            document.querySelectorAll('.day.pressing').forEach(c => c.classList.remove('pressing'));
+            touchMode = null;
+        });
+
+        /* ========== 渲染日历 ========== */
+        function renderCal(cStart, cEnd) {
+            calGrid.innerHTML = '';
+            const start = cStart || new Date(today.getFullYear(), today.getMonth() - 3, 1);
+            const end = cEnd || new Date(today.getFullYear(), today.getMonth() + 6, 0);
+            let cur = new Date(start), lastM = -1;
+
+            const off = cur.getDay() === 0 ? 6 : cur.getDay() - 1;
+            for (let i = 0; i < off + 21; i++) {
+                const d = document.createElement('div');
+                d.className = 'day hide';
+                calGrid.appendChild(d);
+            }
+
+            let todayCell = null;
+
+            while (cur <= end) {
+                const y = cur.getFullYear(), m = cur.getMonth(), dt = cur.getDate();
+                const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(dt).padStart(2, '0')}`;
+                const cell = document.createElement('div');
+                cell.className = 'day';
+                cell.textContent = dt;
+                cell.dataset.date = ds;
+
+                const mainMonth = start.getMonth();
+                if (m !== mainMonth) {
+                    cell.classList.add('out-of-month');
+                }
+
+                if (m !== lastM) {
+                    cell.classList.add('ph');
+                    cell.dataset.m = `${m + 1}月`;
+                    lastM = m;
+                }
+
+                if (ds === todayStr) {
+                    cell.classList.add('today');
+                    todayCell = cell;
+                }
+
+                if (selected.has(ds)) cell.classList.add('sel');
+                if (holidays.has(ds)) cell.classList.add('holiday');
+                if (weekendWorkdays.has(ds)) cell.classList.add('weekend-work');
+
+                // 鼠标事件
+                cell.onmousedown = (e) => {
+                    e.preventDefault();
+                    isDragging = true;
+                    dragStart = ds;
+                    lastHover = ds;
+                    dragWasSel = cell.classList.contains('sel');
+                    updateDrag(ds);
+                };
+                cell.onmouseover = () => {
+                    if (isDragging) {
+                        lastHover = ds;
+                        updateDrag(ds);
+                    }
+                };
+
+                calGrid.appendChild(cell);
+                cur.setDate(cur.getDate() + 1);
+            }
+
+            for (let i = 0; i < 28; i++) {
+                const d = document.createElement('div');
+                d.className = 'day hide';
+                calGrid.appendChild(d);
+            }
+
+            setTimeout(() => {
+                if (todayCell) {
+                    const scrollTarget = todayCell.offsetTop - (calScroll.clientHeight / 2) + (todayCell.offsetHeight / 2);
+                    calScroll.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+                }
+            }, 50);
+
+            const scrollContainer = document.querySelector('.cal-scroll');
+            const calTitle = document.getElementById('calTitle');
+
+            if (scrollContainer && calTitle) {
+                scrollContainer.removeEventListener('scroll', updateCalTitle);
+                scrollContainer.addEventListener('scroll', updateCalTitle);
+                updateCalTitle();
             }
         }
 
-        // ========== 初始化 ==========
-        (function init() {
-            var now = new Date();
-            currentYear = now.getFullYear();
-            currentMonth = now.getMonth();
-            renderCalendar();
-            updateSelectionUI();
+        function updateCalTitle() {
+            const scrollContainer = document.querySelector('.cal-scroll');
+            const calTitle = document.getElementById('calTitle');
+            if (!scrollContainer || !calTitle) return;
 
-            // 初始化触摸手势系统
-            initTouchGestures();
-        })();
+            const containerTop = scrollContainer.getBoundingClientRect().top;
+            const triggerTop = containerTop + 150;
 
+            const days = document.querySelectorAll('.day');
+            if (!days.length) return;
+
+            let curYear, curMonth;
+
+            for (let i = 0; i < days.length; i++) {
+                const day = days[i];
+                const dayTop = day.getBoundingClientRect().top;
+                if (dayTop < triggerTop) continue;
+                const dateStr = day.dataset.date;
+                if (dateStr) { [curYear, curMonth] = dateStr.split('-'); }
+                break;
+            }
+
+            if (!curYear || !curMonth) return;
+
+            const targetYM = `${curYear}-${curMonth}`;
+            for (let i = 0; i < days.length; i++) {
+                const day = days[i];
+                const dateStr = day.dataset.date;
+                if (dateStr && dateStr.startsWith(targetYM)) {
+                    day.classList.remove('out-of-month');
+                } else {
+                    day.classList.add('out-of-month');
+                }
+            }
+
+            calTitle.innerText = `${curYear}年${parseInt(curMonth)}月`;
+        }
+
+        /* ========== 鼠标全局事件 ========== */
+        document.onmouseup = () => { if (isDragging) commitDrag(lastHover || dragStart); };
+        document.onmousemove = (e) => {
+            if (!isDragging) return;
+            const r = calScroll.getBoundingClientRect();
+            if (e.clientY < r.top + 40) calScroll.scrollTop -= 10;
+            else if (e.clientY > r.bottom - 40) calScroll.scrollTop += 10;
+        };
+
+        /* ========== UI 同步 ========== */
+        function syncUI() {
+            document.querySelectorAll('.day').forEach(c => {
+                if (c.dataset.date) {
+                    c.classList.toggle('sel', selected.has(c.dataset.date));
+                }
+            });
+        }
+
+        /* ========== 初始化 ========== */
+        renderCal();
     </script>
-
 </body>
 
 </html>
