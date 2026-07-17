@@ -104,13 +104,54 @@
             -webkit-user-select: none;
             -webkit-touch-callout: none;
             touch-action: manipulation;
+            background: transparent; 
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .day:hover { background: #e5e7eb; }
-        .day.sel { background: var(--primary); color: #fff; }
-        .day.out-of-month { color: #aaa !important; opacity: 0.6; }
-        .day.drag { background: #93c5fd; color: #fff; }
-        .day.pressing { background: #d1d5db !important; }
+        /* ================= 优雅的 CSS 优先级链 ================= */
+
+        /* 1. 默认鼠标悬停与按下 */
+        .day:hover, .day:active {
+            background: #e5e7eb;
+        }
+
+        /* 2. 选中状态 */
+        .day.sel {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        /* 3. 选中状态下的悬停与按下 */
+        .day.sel:hover, .day.sel:active {
+            background: #2563eb; 
+        }
+
+        /* 4. 触摸激活状态下，压制伪类 (权重 0,1,2,0) */
+        body.touch-active .day:hover,
+        body.touch-active .day:active {
+            background: transparent;
+        }
+        body.touch-active .day.sel:hover,
+        body.touch-active .day.sel:active {
+            background: var(--primary);
+        }
+
+        /* 5. 【修复】交互状态 (拖拽、长按) - 提高权重，压制 touch-active 的 :active */
+        .day.drag,
+        body.touch-active .day.drag,
+        body.touch-active .day.drag:active { 
+            background: #93c5fd; 
+            color: #fff; 
+        }
+
+        .day.pressing,
+        body.touch-active .day.pressing,
+        body.touch-active .day.pressing:active { 
+            background: #d1d5db; 
+        }
+        
+        /* 辅助样式 */
+        .day.out-of-month { color: #aaa; opacity: 0.6; }
         .day.today { border: 1px solid var(--primary); }
         .day.hide { visibility: hidden; pointer-events: none; }
 
@@ -139,7 +180,7 @@
         .day.sel.weekend-work::after { color: #f59e0b; }
 
         .cal-scroll.no-touch-scroll {
-            touch-action: none !important;
+            touch-action: none;
             overscroll-behavior: none;
         }
     </style>
@@ -175,7 +216,6 @@
             return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         }
 
-        /* ========== 状态变量 ========== */
         let mouseDown = false;
         let mouseDragStart = null;
         let mouseWasSel = false;
@@ -191,12 +231,11 @@
         let touchMoved = false;
 
         let lastTouchEndTime = 0;
-        const GHOST_CLICK_GAP = 500;
+        const GHOST_CLICK_GAP = 500; 
 
         const MOVE_THRESHOLD = 10;
         const LONG_PRESS_MS = 400;
 
-        /* ========== 工具函数 ========== */
         function getRange(s, e) {
             let a = new Date(Math.min(new Date(s).getTime(), new Date(e).getTime()));
             let b = new Date(Math.max(new Date(s).getTime(), new Date(e).getTime()));
@@ -232,18 +271,22 @@
             });
         }
 
-        /* ========== 工具函数：清除残留视觉状态 ========== */
-        function clearTouchVisuals() {
-            document.querySelectorAll('.day.pressing,.day.drag').forEach(c =>
-                c.classList.remove('pressing', 'drag'));
-        }
+        /* ========== 全局设备状态感知 ========== */
+        document.addEventListener('touchstart', () => {
+            document.body.classList.add('touch-active');
+        }, { passive: true });
+
+        document.addEventListener('pointermove', (e) => {
+            if (e.pointerType === 'mouse' && (Date.now() - lastTouchEndTime > GHOST_CLICK_GAP)) {
+                if (document.body.classList.contains('touch-active')) {
+                    document.body.classList.remove('touch-active');
+                }
+            }
+        }, { passive: true });
 
         /* ========== 鼠标事件 ========== */
         calGrid.addEventListener('mousedown', (e) => {
-            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) {
-                return;
-            }
-
+            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) return;
             if (e.button !== 0) return;
             const cell = e.target.closest('.day:not(.hide)');
             if (!cell) return;
@@ -285,11 +328,8 @@
         calGrid.addEventListener('contextmenu', (e) => e.preventDefault());
 
         /* ========== 触摸事件 ========== */
-
         calScroll.addEventListener('touchmove', (e) => {
-            if (touchDragMode) {
-                e.preventDefault();
-            }
+            if (touchDragMode) e.preventDefault();
         }, { passive: false });
 
         calGrid.addEventListener('touchstart', (e) => {
@@ -309,14 +349,10 @@
             touchTimer = setTimeout(() => {
                 if (!touchActive) return;
                 touchDragMode = true;
-
                 if (navigator.vibrate) navigator.vibrate(30);
-
                 cell.classList.add('pressing');
                 setTimeout(() => cell.classList.remove('pressing'), 150);
-
                 calScroll.classList.add('no-touch-scroll');
-
                 highlightRange(touchDragStart, touchDragStart);
             }, LONG_PRESS_MS);
 
@@ -338,7 +374,6 @@
             }
 
             e.preventDefault();
-
             const cell = cellAt(t.clientX, t.clientY);
             if (cell && cell.dataset.date) {
                 touchLastHover = cell.dataset.date;
@@ -350,32 +385,22 @@
                 calScroll.scrollTop -= 8;
                 requestAnimationFrame(() => {
                     const c2 = cellAt(t.clientX, t.clientY);
-                    if (c2 && c2.dataset.date) {
-                        touchLastHover = c2.dataset.date;
-                        highlightRange(touchDragStart, touchLastHover);
-                    }
+                    if (c2 && c2.dataset.date) { touchLastHover = c2.dataset.date; highlightRange(touchDragStart, touchLastHover); }
                 });
             } else if (t.clientY > r.bottom - 40) {
                 calScroll.scrollTop += 8;
                 requestAnimationFrame(() => {
                     const c2 = cellAt(t.clientX, t.clientY);
-                    if (c2 && c2.dataset.date) {
-                        touchLastHover = c2.dataset.date;
-                        highlightRange(touchDragStart, touchLastHover);
-                    }
+                    if (c2 && c2.dataset.date) { touchLastHover = c2.dataset.date; highlightRange(touchDragStart, touchLastHover); }
                 });
             }
 
         }, { passive: false });
 
         calGrid.addEventListener('touchend', () => {
-            lastTouchEndTime = Date.now();
-
+            lastTouchEndTime = Date.now(); 
             clearTimeout(touchTimer);
             touchTimer = null;
-
-            /* 【修复】在任何分支之前，先清除所有残留的 pressing 和 drag 样式 */
-            clearTouchVisuals();
 
             if (touchDragMode) {
                 commitRange(touchDragStart, touchLastHover, touchWasSel);
@@ -393,14 +418,15 @@
 
         calGrid.addEventListener('touchcancel', () => {
             lastTouchEndTime = Date.now();
-            
             clearTimeout(touchTimer);
             touchTimer = null;
             touchActive = false;
             touchDragMode = false;
             touchDragStart = null;
             calScroll.classList.remove('no-touch-scroll');
-            clearTouchVisuals();
+            document.querySelectorAll('.day.drag, .day.pressing').forEach(c => {
+                c.classList.remove('drag', 'pressing');
+            });
         });
 
         /* ========== 渲染日历 ========== */
@@ -428,7 +454,6 @@
                 cell.dataset.date = ds;
 
                 if (m !== start.getMonth()) cell.classList.add('out-of-month');
-
                 if (m !== lastM) {
                     cell.classList.add('ph');
                     cell.dataset.m = `${m+1}月`;
