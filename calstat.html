@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日历场次计算器</title>
+    <title>日历场次计算器V2.0</title>
     <style>
         :root {
             --primary: #3b82f6;
@@ -27,7 +27,6 @@
             align-items: center;
             min-height: 100vh;
             color: #1f2937;
-            /* min-width: 1000px; */
         }
 
         .app {
@@ -129,18 +128,54 @@
             border-radius: 6px;
             font-size: 14px;
             text-align: center;
-            transition: 0.2s;
+            transition: background 0.15s;
             user-select: none;
             position: relative;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: manipulation;
+            background: transparent;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .day:hover {
+        /* 1. 默认鼠标悬停与按下 */
+        .day:hover, .day:active {
             background: #e5e7eb;
         }
 
+        /* 2. 选中状态 */
         .day.sel {
             background: var(--primary);
             color: #fff;
+        }
+
+        /* 3. 选中状态下的悬停与按下 */
+        .day.sel:hover, .day.sel:active {
+            background: #2563eb; 
+        }
+
+        /* 4. 触摸激活状态下，压制伪类 (权重 0,0,3,1和 0,0,4,1) */
+        body.touch-active .day:hover,
+        body.touch-active .day:active {
+            background: transparent;
+        }
+        body.touch-active .day.sel:hover,
+        body.touch-active .day.sel:active {
+            background: var(--primary);
+        }
+
+        /* 5. 【修复】交互状态 (拖拽、长按) - 提高权重，压制 touch-active 的 :active */
+        .day.drag,
+        body.touch-active .day.drag,
+        body.touch-active .day.drag:active { 
+            background: #93c5fd; 
+            color: #fff; 
+        }
+
+        .day.pressing,
+        body.touch-active .day.pressing,
+        body.touch-active .day.pressing:active { 
+            background: #d1d5db; 
         }
 
         .day.out-of-month {
@@ -148,24 +183,13 @@
             opacity: 0.6;
         }
 
-        .day.out-of-month.selected {
-            background: #e0e0e0 !important;
-            color: #333 !important;
-            opacity: 1;
-        }
-
-        .day.drag {
-            background: #93c5fd;
-            color: #fff;
-        }
-
-        .day.pressing {
-            background: #d1d5db !important;
-            transition: background 0.1s;
-        }
-
         .day.today {
             border: 1px solid var(--primary);
+        }
+
+        .day.hide {
+            visibility: hidden;
+            pointer-events: none;
         }
 
         .day.ph::before {
@@ -180,11 +204,6 @@
 
         .day.sel.ph::before {
             color: #fff;
-        }
-
-        .day.hide {
-            visibility: hidden;
-            pointer-events: none;
         }
 
         .day::after {
@@ -813,6 +832,8 @@
     <script>
         const calGrid = document.getElementById('calGrid');
         const calScroll = document.getElementById('calScroll');
+        const calTitle = document.getElementById('calTitle');
+
         let selected = new Set();
         let holidays = new Set();
         let weekendWorkdays = new Set();
@@ -822,14 +843,25 @@
         const startDateEl = document.getElementById('startDate');
         const endDateEl = document.getElementById('endDate');
 
-        let isDragging = false;
-        let dragStart = null;
-        let dragWasSel = false;
-        let lastHover = null;
+        let mouseDown = false;
+        let mouseDragStart = null;
+        let mouseWasSel = false;
+        let mouseLastHover = null;
 
-        let pressTimer = null;          // 用于存储长按定时器的引用
-        let isLongPress = false;        // 标记当前是否已经触发了长按
-        let startPos = { x: 0, y: 0 };  // 记录手指按下的初始位置
+        let touchActive = false;
+        let touchTimer = null;
+        let touchDragMode = false;   
+        let touchDragStart = null;
+        let touchWasSel = false;
+        let touchLastHover = null;
+        let touchStartX = 0, touchStartY = 0;
+        let touchMoved = false;
+
+        let lastTouchEndTime = 0;
+        const GHOST_CLICK_GAP = 500; 
+
+        const MOVE_THRESHOLD = 10;
+        const LONG_PRESS_MS = 400;
 
         // --- 工具函数：将日期字符串或对象标准化为 YYYY-MM-DD 格式 ---
         function formatDate(dateInput) {
@@ -864,8 +896,6 @@
         function mobileToggleCal() {
             const app = document.getElementById('app');
             app.classList.toggle('mobile-collapsed');
-
-            // if (mobileExpandBtn) mobileExpandBtn.textContent = isCollapsed ? '🗓️ 展开日历' : '🗓️ 收起日历';
         }
         document.getElementById('toggleBtn').addEventListener('click', toggleCal);
         document.getElementById('mobileExpandBtn').addEventListener('click', mobileToggleCal);
@@ -873,7 +903,9 @@
 
         const toTime = s => new Date(s).getTime();
         function getRange(s, e) {
-            let start = new Date(Math.min(toTime(s), toTime(e))), end = new Date(Math.max(toTime(s), toTime(e))), res = [];
+            let start = new Date(Math.min(toTime(s), toTime(e)));
+            let end = new Date(Math.max(toTime(s), toTime(e)));
+            let res = [];
             while (start <= end) {
                 res.push(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`);
                 start.setDate(start.getDate() + 1);
@@ -881,24 +913,184 @@
             return res;
         }
 
-        function updateDrag(cur) {
+        function cellAt(x, y) {
+            const el = document.elementFromPoint(x, y);
+            return el ? el.closest('.day:not(.hide)') : null;
+        }
+
+        function highlightRange(start, end) {
             document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
-            if (!isDragging || !dragStart) return;
-            getRange(dragStart, cur).forEach(d => {
+            if (!start || !end) return;
+            getRange(start, end).forEach(d => {
                 const c = calGrid.querySelector(`.day[data-date="${d}"]`);
                 if (c) c.classList.add('drag');
             });
         }
-        function commitDrag(end) {
-            if (!isDragging || !dragStart)
-                return;
-            const dates = getRange(dragStart, end);
-            dates.forEach(d => dragWasSel ? selected.delete(d) : selected.add(d));
-            isDragging = false;
-            dragStart = null;
+
+        function commitRange(start, end, wasSel) {
+            if (!start || !end) return;
+            getRange(start, end).forEach(d => wasSel ? selected.delete(d) : selected.add(d));
             document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
             syncUI();
         }
+
+        /* ========== 全局设备状态感知 ========== */
+        document.addEventListener('touchstart', () => {
+            document.body.classList.add('touch-active');
+        }, { passive: true });
+
+        document.addEventListener('pointermove', (e) => {
+            if (e.pointerType === 'mouse' && (Date.now() - lastTouchEndTime > GHOST_CLICK_GAP)) {
+                if (document.body.classList.contains('touch-active')) {
+                    document.body.classList.remove('touch-active');
+                }
+            }
+        }, { passive: true });
+
+        /* ========== 鼠标事件 ========== */
+        calGrid.addEventListener('mousedown', (e) => {
+            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) return;
+            if (e.button !== 0) return;
+            const cell = e.target.closest('.day:not(.hide)');
+            if (!cell) return;
+
+            e.preventDefault();
+            mouseDown = true;
+            mouseDragStart = cell.dataset.date;
+            mouseWasSel = cell.classList.contains('sel');
+            mouseLastHover = mouseDragStart;
+            highlightRange(mouseDragStart, mouseDragStart);
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!mouseDown) return;
+            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) return;
+            
+            const cell = cellAt(e.clientX, e.clientY);
+            if (cell && cell.dataset.date) {
+                mouseLastHover = cell.dataset.date;
+                highlightRange(mouseDragStart, mouseLastHover);
+            }
+            const r = calScroll.getBoundingClientRect();
+            if (e.clientY < r.top + 30) calScroll.scrollTop -= 12;
+            else if (e.clientY > r.bottom - 30) calScroll.scrollTop += 12;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!mouseDown) return;
+            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) {
+                mouseDown = false;
+                mouseDragStart = null;
+                return;
+            }
+            commitRange(mouseDragStart, mouseLastHover, mouseWasSel);
+            mouseDown = false;
+            mouseDragStart = null;
+        });
+
+        calGrid.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        /* ========== 触摸事件 ========== */
+        calScroll.addEventListener('touchmove', (e) => {
+            if (touchDragMode) e.preventDefault();
+        }, { passive: false });
+
+        calGrid.addEventListener('touchstart', (e) => {
+            const t = e.touches[0];
+            const cell = e.target.closest('.day:not(.hide)');
+            if (!cell) return;
+
+            touchActive = true;
+            touchDragMode = false;
+            touchMoved = false;
+            touchStartX = t.clientX;
+            touchStartY = t.clientY;
+            touchDragStart = cell.dataset.date;
+            touchWasSel = cell.classList.contains('sel');
+            touchLastHover = touchDragStart;
+
+            touchTimer = setTimeout(() => {
+                if (!touchActive) return;
+                touchDragMode = true;
+                if (navigator.vibrate) navigator.vibrate(30);
+                cell.classList.add('pressing');
+                setTimeout(() => cell.classList.remove('pressing'), 150);
+                calScroll.classList.add('no-touch-scroll');
+                highlightRange(touchDragStart, touchDragStart);
+            }, LONG_PRESS_MS);
+
+        }, { passive: true });
+
+        calGrid.addEventListener('touchmove', (e) => {
+            if (!touchActive) return;
+            const t = e.touches[0];
+            const dx = t.clientX - touchStartX;
+            const dy = t.clientY - touchStartY;
+
+            if (!touchDragMode) {
+                if (Math.sqrt(dx*dx + dy*dy) > MOVE_THRESHOLD) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                    touchMoved = true;
+                }
+                return;
+            }
+
+            e.preventDefault();
+            const cell = cellAt(t.clientX, t.clientY);
+            if (cell && cell.dataset.date) {
+                touchLastHover = cell.dataset.date;
+                highlightRange(touchDragStart, touchLastHover);
+            }
+
+            const r = calScroll.getBoundingClientRect();
+            if (t.clientY < r.top + 40) {
+                calScroll.scrollTop -= 8;
+                requestAnimationFrame(() => {
+                    const c2 = cellAt(t.clientX, t.clientY);
+                    if (c2 && c2.dataset.date) { touchLastHover = c2.dataset.date; highlightRange(touchDragStart, touchLastHover); }
+                });
+            } else if (t.clientY > r.bottom - 40) {
+                calScroll.scrollTop += 8;
+                requestAnimationFrame(() => {
+                    const c2 = cellAt(t.clientX, t.clientY);
+                    if (c2 && c2.dataset.date) { touchLastHover = c2.dataset.date; highlightRange(touchDragStart, touchLastHover); }
+                });
+            }
+
+        }, { passive: false });
+
+        calGrid.addEventListener('touchend', () => {
+            lastTouchEndTime = Date.now(); 
+            clearTimeout(touchTimer);
+            touchTimer = null;
+
+            if (touchDragMode) {
+                commitRange(touchDragStart, touchLastHover, touchWasSel);
+                calScroll.classList.remove('no-touch-scroll');
+            } else if (!touchMoved && touchDragStart) {
+                if (selected.has(touchDragStart)) selected.delete(touchDragStart);
+                else selected.add(touchDragStart);
+                syncUI();
+            }
+
+            touchActive = false;
+            touchDragMode = false;
+            touchDragStart = null;
+        });
+
+        calGrid.addEventListener('touchcancel', () => {
+            lastTouchEndTime = Date.now();
+            clearTimeout(touchTimer);
+            touchTimer = null;
+            touchActive = false;
+            touchDragMode = false;
+            touchDragStart = null;
+            calScroll.classList.remove('no-touch-scroll');
+            document.querySelectorAll('.day.drag, .day.pressing').forEach(c => {
+                c.classList.remove('drag', 'pressing');
+            });
+        });
 
         function renderCal(cStart, cEnd) {
             calGrid.innerHTML = '';
@@ -908,7 +1100,7 @@
 
             // 补齐第一周前面的空白格子
             const off = cur.getDay() === 0 ? 6 : cur.getDay() - 1;
-            for (let i = 0; i < off + 21; i++) {
+            for (let i = 0; i < off; i++) {
                 const d = document.createElement('div');
                 d.className = 'day hide';
                 calGrid.appendChild(d);
@@ -917,7 +1109,9 @@
             let todayCell = null; // 记录今天的 DOM 元素
 
             while (cur <= end) {
-                const y = cur.getFullYear(), m = cur.getMonth(), dt = cur.getDate();
+                const y = cur.getFullYear();
+                const m = cur.getMonth();
+                const dt = cur.getDate();
                 const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(dt).padStart(2, '0')}`;
                 const cell = document.createElement('div');
                 cell.className = 'day';
@@ -949,28 +1143,11 @@
                 if (holidays.has(ds)) cell.classList.add('holiday');
                 if (weekendWorkdays.has(ds)) cell.classList.add('weekend-work');
 
-                // 拖拽事件
-                cell.onmousedown = (e) => {
-                    e.preventDefault();
-                    isDragging = true;
-                    dragStart = ds;
-                    lastHover = ds;
-                    dragWasSel = cell.classList.contains('sel');
-                    updateDrag(ds);
-                    hideAllDateInputError();
-                };
-                cell.onmouseover = () => {
-                    if (isDragging) {
-                        lastHover = ds;
-                        updateDrag(ds);
-                    }
-                };
-
                 calGrid.appendChild(cell);
                 cur.setDate(cur.getDate() + 1);
             }
 
-            for (let i = 0; i < 28; i++) {
+            for (let i = 0; i < 21; i++) {
                 const d = document.createElement('div');
                 d.className = 'day hide';
                 calGrid.appendChild(d);
@@ -981,77 +1158,59 @@
             setTimeout(() => {
                 if (todayCell) {
                     // 计算今天距离日历顶部的偏移量，减去容器高度的一半，使其居中
-                    const scrollTarget = todayCell.offsetTop - (calScroll.clientHeight / 2) + (todayCell.offsetHeight / 2);
+                    const scrollTarget = todayCell.offsetTop - (calScroll.clientHeight / 2 + 100) + (todayCell.offsetHeight / 2);
                     calScroll.scrollTo({ top: scrollTarget, behavior: 'smooth' });
                 }
             }, 50);
 
-            const scrollContainer = document.querySelector('.cal-scroll');
-            const calTitle = document.getElementById('calTitle');
 
-            if (scrollContainer && calTitle) {
-                // 移除旧的监听器，防止重复绑定
-                scrollContainer.removeEventListener('scroll', updateCalTitle);
-                scrollContainer.addEventListener('scroll', updateCalTitle);
-
-                // 初始渲染时立即执行一次
-                updateCalTitle();
-            }
+            calScroll.removeEventListener('scroll', updateCalTitle);
+            calScroll.addEventListener('scroll', updateCalTitle);
+            
+            // 初始渲染时立即执行一次
+            updateCalTitle();
+            
         }
 
         function updateCalTitle() {
-            const scrollContainer = document.querySelector('.cal-scroll');
-            const calTitle = document.getElementById('calTitle');
-            if (!scrollContainer || !calTitle) return;
+            if (!calScroll || !calTitle) return;
 
             // 获取滚动容器在屏幕上的绝对顶部位置
-            const containerTop = scrollContainer.getBoundingClientRect().top;
-            // 稍微往下偏移8px ，防止刚好卡在边缘
-            const triggerTop = containerTop + 150;
+            const triggerTop = calScroll.getBoundingClientRect().top;
+
 
             const days = document.querySelectorAll('.day');
             if (!days.length) return;
 
-            let curYear, curMonth;
+            let curYear, curMonth, curDay;
 
             // 正序遍历，找到第一个“顶部刚好越过触发线”的【当月日期】
-            for (let i = 0; i < days.length; i++) {
-                const day = days[i];
+            for (const day of days) {
                 const dayTop = day.getBoundingClientRect().top;
 
                 // 如果这个格子还在触发线之上，说明还没到它，继续看下一个
-                if (dayTop < triggerTop) continue;
+                if (dayTop <= triggerTop) continue;
                 const dateStr = day.dataset.date;
-                if (dateStr) { [curYear, curMonth] = dateStr.split('-'); }
-                break;
-
-            }
-
-            if (!curYear || !curMonth) return; 
-            
-            const targetYM = `${curYear}-${curMonth}`;
-            for (let i = 0; i < days.length; i++) {
-                const day = days[i];
-                const dateStr = day.dataset.date;
-                if (dateStr && dateStr.startsWith(targetYM)) {
-                    day.classList.remove('out-of-month');
+                if (dateStr) { 
+                    [curYear, curMonth, curDay] = dateStr.split('-');
+                    if (curDay == 1) break;
+                    else continue;
                 }
-                else { day.classList.add('out-of-month'); }
+                
             }
-            
+
+            if (!curYear || !curMonth) return;
+
+            const ym = `${curYear}-${curMonth}`;
+            days.forEach(day => {
+                const ds = day.dataset.date;
+                // if (ds && ds.startsWith(ym)) day.classList.remove('out-of-month');
+                // else day.classList.add('out-of-month');
+                day.classList.toggle('out-of-month', ds && !ds.startsWith(ym));
+            });
+
             calTitle.innerText = `${curYear}年${parseInt(curMonth)}月`;
         }
-
-        // 全局鼠标事件（处理拖拽选择）
-        document.onmouseup = () => { if (isDragging) commitDrag(lastHover || dragStart); };
-        document.onmousemove = (e) => {
-            if (!isDragging) return;
-            const r = calScroll.getBoundingClientRect();
-            if (e.clientY < r.top + 40) calScroll.scrollTop -= 10;
-            else if (e.clientY > r.bottom - 40) calScroll.scrollTop += 10;
-        };
-
-
 
         // 错误提示处理
         function showDateInputError(id) {
@@ -1105,25 +1264,6 @@
                 return;
             }
 
-            // if (s > e) {
-            //     showDateInputError('endDate');
-            //     document.getElementById('status').textContent = '⚠️ 结束日期不能早于开始日期';
-            //     return;
-            // }
-
-            // let cur = new Date(s);
-            // while (cur <= new Date(e)) {
-            //     selected.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`);
-            //     cur.setDate(cur.getDate() + 1);
-            // }
-
-            // const cs = new Date(new Date(s).getFullYear(), new Date(s).getMonth(), 1);
-            // const ce = new Date(new Date(e).getFullYear(), new Date(e).getMonth() + 1, 0);
-            // renderCal(cs, ce);
-            // syncUI();
-            // document.getElementById('status').textContent = `已追加区间，当前共选中 ${selected.size} 天`;
-
-
             // 1. 加入选中集合
             let cur = new Date(s);
             while (cur <= new Date(e)) {
@@ -1173,7 +1313,9 @@
 
         // 核心计算逻辑
         function syncUI() {
-            document.querySelectorAll('.day').forEach(c => c.classList.toggle('sel', selected.has(c.dataset.date)));
+            document.querySelectorAll('.day').forEach(c => {
+                if (c.dataset.date) c.classList.toggle('sel', selected.has(c.dataset.date));
+            });
             recalc();
         }
 
