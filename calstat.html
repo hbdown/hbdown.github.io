@@ -4,13 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日历场次计算器V2.0</title>
+    <title>日历场次计算器 V3.4</title>
     <style>
         :root {
             --primary: #3b82f6;
+            --primary-hover: #2563eb;
             --bg: #f3f4f6;
             --card: #fff;
             --border: #e5e7eb;
+            --text: #1f2937;
+            --text-secondary: #6b7280;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --purple: #7c3aed;
+            --radius-sm: 6px;
+            --radius: 8px;
+            --radius-lg: 12px;
+            --cal-panel-width: 350px;
         }
 
         * {
@@ -20,44 +31,45 @@
         }
 
         body {
-            font-family: system-ui, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             background: var(--bg);
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            color: #1f2937;
+            color: var(--text);
         }
 
         .app {
             display: flex;
-            height: 600px;
+            height: 620px;
             background: var(--card);
-            border-radius: 12px;
+            border-radius: var(--radius-lg);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
             overflow: hidden;
             position: relative;
         }
 
         .cal-panel {
-            width: 350px;
+            width: var(--cal-panel-width);
             min-width: 0;
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             background: #fafafa;
-            transition: width 0.3s ease, height 0.3s ease;
+            transition: width 0.3s ease;
             overflow: hidden;
         }
 
         .cal-header {
-            padding: 15px;
+            padding: 12px 15px;
             font-weight: bold;
             border-bottom: 1px solid var(--border);
             white-space: nowrap;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-size: 14px;
         }
 
         .cal-title {
@@ -74,27 +86,22 @@
             grid-template-columns: repeat(7, 1fr);
             text-align: center;
             font-size: 13px;
-            color: #6b7280;
+            color: var(--text-secondary);
             font-weight: 600;
             padding: 10px 10px 5px;
             border-bottom: 1px solid var(--border);
-            white-space: nowrap;
         }
 
         .cal-scroll {
             flex: 1;
             overflow-y: auto;
             padding: 10px;
-            scrollbar-width: none;
-            scrollbar-color: #d1d5db #f9fafb;
+            scrollbar-width: thin;
+            scrollbar-color: #d1d5db transparent;
         }
 
         .cal-scroll::-webkit-scrollbar {
             width: 6px;
-        }
-
-        .cal-scroll::-webkit-scrollbar-track {
-            background: transparent;
         }
 
         .cal-scroll::-webkit-scrollbar-thumb {
@@ -102,89 +109,85 @@
             border-radius: 3px;
         }
 
-        /* 如果浏览器支持 Firefox 的滚动条属性，说明它是 Firefox，应用专属样式 */
-        @supports (scrollbar-width: thin) {
-            .cal-scroll {
-                scrollbar-width: thin;
-                scrollbar-gutter: stable;
-            }
-
-            .weekdays {
-                overflow-y: auto;
-                scrollbar-gutter: stable;
-                scrollbar-width: thin;
-            }
-        }
-
         .grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 6px;
+            gap: 5px;
         }
 
         .day {
+            --cell-bg: transparent;
+            --cell-color: inherit;
             padding: 10px 0;
             cursor: pointer;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-size: 14px;
             text-align: center;
             transition: background 0.15s;
             user-select: none;
-            position: relative;
             -webkit-user-select: none;
-            -webkit-touch-callout: none;
-            touch-action: manipulation;
-            background: transparent;
             -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            position: relative;
+            background: var(--cell-bg);
+            color: var(--cell-color);
         }
 
-        /* 1. 默认鼠标悬停与按下 */
-        .day:hover, .day:active {
-            background: #e5e7eb;
+        .day:hover {
+            --cell-bg: #e5e7eb;
         }
 
-        /* 2. 选中状态 */
+        .day:active {
+            --cell-bg: #d1d5db;
+        }
+
         .day.sel {
-            background: var(--primary);
-            color: #fff;
+            --cell-bg: var(--primary);
+            --cell-color: #fff;
         }
 
-        /* 3. 选中状态下的悬停与按下 */
-        .day.sel:hover, .day.sel:active {
-            background: #2563eb; 
+        .day.sel:hover {
+            --cell-bg: var(--primary-hover);
         }
 
-        /* 4. 触摸激活状态下，压制伪类 (权重 0,0,3,1和 0,0,4,1) */
-        body.touch-active .day:hover,
-        body.touch-active .day:active {
-            background: transparent;
-        }
-        body.touch-active .day.sel:hover,
-        body.touch-active .day.sel:active {
-            background: var(--primary);
+        .day.drag-add {
+            --cell-bg: #93c5fd;
+            --cell-color: #fff;
         }
 
-        /* 5. 【修复】交互状态 (拖拽、长按) - 提高权重，压制 touch-active 的 :active */
-        .day.drag,
-        body.touch-active .day.drag,
-        body.touch-active .day.drag:active { 
-            background: #93c5fd; 
-            color: #fff; 
+        .day.drag-remove {
+            --cell-bg: #fca5a5;
+            --cell-color: #fff;
         }
 
-        .day.pressing,
-        body.touch-active .day.pressing,
-        body.touch-active .day.pressing:active { 
-            background: #d1d5db; 
+        .day.pressing {
+            --cell-bg: #d1d5db;
+        }
+
+        body.touch-active .day:hover {
+            --cell-bg: transparent;
+        }
+
+        body.touch-active .day.sel:hover {
+            --cell-bg: var(--primary);
+        }
+
+        body.touch-active .day.drag-add:hover,
+        body.touch-active .day.drag-add:active {
+            --cell-bg: #93c5fd;
+        }
+
+        body.touch-active .day.drag-remove:hover,
+        body.touch-active .day.drag-remove:active {
+            --cell-bg: #fca5a5;
         }
 
         .day.out-of-month {
-            color: #aaa !important;
-            opacity: 0.6;
+            opacity: 0.4;
         }
 
         .day.today {
-            border: 1px solid var(--primary);
+            border: 1.5px solid var(--primary);
         }
 
         .day.hide {
@@ -210,71 +213,56 @@
             content: '';
             position: absolute;
             bottom: 2px;
-            /* 稍微增加底部距离 */
             left: 50%;
             transform: translateX(-50%);
             font-size: 10px;
-            /* 小字展示 */
             font-weight: bold;
             line-height: 1;
-            /* 默认不带背景色 */
-            background: transparent;
         }
 
-        /* 公休日样式：默认蓝色 */
         .day.holiday::after {
             content: '休';
-            color: #3b82f6;
+            color: var(--primary);
         }
 
-        /* 周末班样式：默认紫色 */
         .day.weekend-work::after {
             content: '班';
             color: #a87bf5;
         }
 
-        /* 公休日选中：变为醒目的红色，与选中背景形成对比 */
         .day.sel.holiday::after {
-            color: #ef4444;
+            color: var(--danger);
         }
 
-        /* 周末班选中：变为明亮的橙色，与公休日选中明显区分 */
         .day.sel.weekend-work::after {
-            color: #f59e0b;
+            color: var(--warning);
         }
 
         .toggle-btn {
             position: absolute;
             top: 50%;
-            left: 350px;
+            left: var(--cal-panel-width);
             transform: translateY(-50%);
             z-index: 10;
-            width: 10px;
+            width: 12px;
             height: 60px;
             background: var(--card);
             border: 1px solid var(--border);
             border-left: none;
-            border-radius: 0 8px 8px 0;
+            border-radius: 0 var(--radius) var(--radius) 0;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 8px;
-            color: #6b7280;
+            color: var(--text-secondary);
             transition: left 0.3s ease, background 0.2s;
             box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
         }
 
         .toggle-btn:hover {
-            background: #f3f4f6;
+            background: var(--bg);
             color: var(--primary);
-        }
-
-        /* 收起状态下的整体与面板样式 */
-        .app.collapsed {
-            width: 100%;
-            max-width: 600px;
-            /* 限制收起时的最大宽度不超过600 */
         }
 
         .app.collapsed .cal-panel {
@@ -286,36 +274,13 @@
             left: 0;
         }
 
-        .mobile-expand-btn {
-            display: none;
-            background: var(--primary);
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-size: 13px;
-            cursor: pointer;
-            margin-bottom: 10px;
-            width: 100%;
-            text-align: center;
-        }
-
-        .mobile-expand-btn:hover {
-            opacity: 0.9;
-        }
-
-        .mobile-collapse-btn {
-            display: none;
-        }
-
         .right-panel {
             flex: 1;
             padding: 20px;
-            max-width: 600px;
+            max-width: 620px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            transition: padding 0.3s ease;
+            gap: 14px;
             overflow-y: auto;
         }
 
@@ -323,9 +288,8 @@
             display: flex;
             align-items: flex-end;
             gap: 10px;
-            padding-bottom: 15px;
+            padding-bottom: 14px;
             border-bottom: 1px solid var(--border);
-            position: relative;
             flex-wrap: wrap;
         }
 
@@ -333,57 +297,34 @@
             display: flex;
             flex-direction: column;
             gap: 4px;
-            position: relative;
         }
 
         .grp label {
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
             font-weight: 600;
         }
 
         input {
             padding: 6px 8px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-size: 13px;
             outline: none;
-            /* transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease; */
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         input:focus {
             border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
         }
 
-        /* 输入框错误状态样式 */
         .input-error {
-            border-color: rgba(230, 40, 30, 0.6);
-            box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
-            /* transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease; */
-            background-color: #fee2e2;
+            border-color: rgba(239, 68, 68, 0.6) !important;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.3) !important;
+            background-color: #fee2e2 !important;
         }
 
-        /* 透明度闪烁（呼吸灯效果） */
-        @keyframes errorPulse {
-
-            0%,
-            70% {
-                border: 1px solid var(--border);
-                box-shadow: none;
-                background-color: var(--bg);
-            }
-
-            30%,
-            100% {
-                border-color: rgba(230, 40, 30, 0.4);
-                box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.4);
-                background-color: rgba(254, 226, 226, 1);
-            }
-
-
-        }
-
-        /* 轻微左右抖动（更醒目的震动效果） */
         @keyframes errorShake {
 
             0%,
@@ -392,54 +333,90 @@
             }
 
             25% {
-                transform: translateX(-2px);
+                transform: translateX(-3px);
             }
 
             75% {
-                transform: translateX(2px);
+                transform: translateX(3px);
             }
         }
 
         .error-flash {
-            animation: errorPulse 0.6s ease-in-out 1 forwards;
+            animation: errorShake 0.3s ease 2;
         }
 
         .btn {
             padding: 7px 12px;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             border: none;
             cursor: pointer;
             font-size: 13px;
             font-weight: 500;
             color: #fff;
             white-space: nowrap;
+            transition: opacity 0.2s, transform 0.1s;
         }
 
-        .btn-p {
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
             background: var(--primary);
         }
 
-        .btn-d {
-            background: #ef4444;
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
         }
 
         .btn-ghost {
             background: transparent;
             border: 1px solid var(--border);
-            color: #6b7280;
+            color: var(--text-secondary);
             padding: 6px 10px;
-            font-size: 14px;
-            line-height: 1;
+            font-size: 13px;
         }
 
         .btn-ghost:hover {
             background: #fee2e2;
-            border-color: #ef4444;
-            color: #ef4444;
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .btn-ghost.btn-undo {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-ghost.btn-undo:hover {
+            background: #eff6ff;
         }
 
         .tbl {
-            flex: 1;
             display: flex;
             flex-direction: column;
             gap: 8px;
@@ -447,7 +424,7 @@
 
         .row {
             display: grid;
-            grid-template-columns: 60px repeat(7, 1fr);
+            grid-template-columns: 70px repeat(7, 1fr);
             gap: 4px;
             align-items: center;
         }
@@ -455,7 +432,7 @@
         .hdr div {
             text-align: center;
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
             font-weight: 600;
         }
 
@@ -473,7 +450,6 @@
             font-size: 13px;
             background: #f9fafb;
             border: 1px solid transparent;
-            /* min-width: 40px; */
         }
 
         .row input[readonly] {
@@ -487,15 +463,15 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 8px 0;
-            margin-top: -4px;
+            padding: 6px 0;
+            flex-wrap: wrap;
         }
 
         .batch-row label,
         .special-sess-row label {
             font-size: 12px;
             font-weight: 600;
-            color: #6b7280;
+            color: var(--text-secondary);
             white-space: nowrap;
         }
 
@@ -505,69 +481,43 @@
             text-align: center;
         }
 
-        /* .special-sess-row div {
-            flex: 1;
-        } */
-
-        .batch-row .btn-apply {
-            padding: 6px 12px;
-            font-size: 12px;
-            background: #10b981;
-        }
-
-        .batch-row .btn-apply:hover {
-            background: #059669;
-        }
-
-        .special-sess-row .btn-add {
-            padding: 6px 12px;
-            font-size: 12px;
-            background: #f59e0b;
-            color: #fff;
-        }
-
-        .special-sess-row .btn-add:hover {
-            background: #d97706;
-        }
-
         .special-list {
             font-size: 11px;
             color: #4b5563;
             max-height: 60px;
             overflow-y: auto;
-            margin-top: 4px;
             padding-left: 5px;
-            border-left: 2px solid #e5e7eb;
+            border-left: 2px solid var(--border);
         }
 
         .special-list span {
             display: inline-block;
-            background: #f3f4f6;
+            background: var(--bg);
             border-radius: 4px;
             padding: 2px 6px;
             margin: 2px;
             cursor: pointer;
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--border);
             transition: all 0.2s;
         }
 
         .special-list span:hover {
             background: #fee2e2;
-            border-color: #ef4444;
-            color: #ef4444;
+            border-color: var(--danger);
+            color: var(--danger);
         }
 
         .bottom-stats {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             padding-top: 10px;
             border-top: 1px dashed var(--border);
         }
 
-        .bottom-stats .stat-card {
+        .stat-card {
             flex: 1;
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: var(--radius);
             padding: 10px 8px;
             display: flex;
             flex-direction: column;
@@ -576,44 +526,30 @@
             background: #fafafa;
         }
 
-        .bottom-stats .stat-card label {
+        .stat-card label {
             font-size: 11px;
             font-weight: 600;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
 
-        .bottom-stats .stat-card .num {
+        .stat-card .num {
             font-size: 18px;
             font-weight: bold;
-            color: #1f2937;
         }
 
-        .bottom-stats .stat-card.workdays .num {
+        .stat-card.workdays .num {
             color: #059669;
         }
 
-        .bottom-stats .stat-card.holidays .num {
+        .stat-card.holidays .num {
             color: #d97706;
         }
 
-        .bottom-stats .stat-card.weekend-work .num {
-            color: #7c3aed;
+        .stat-card.weekend-work .num {
+            color: var(--purple);
         }
 
-        .bottom-stats .stat-card.total-days .num {
-            color: var(--primary);
-        }
-
-        .bottom-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-top: 15px;
-        }
-
-        .total {
-            font-size: 24px;
-            font-weight: bold;
+        .stat-card.total-days .num {
             color: var(--primary);
         }
 
@@ -622,54 +558,89 @@
             align-items: center;
             gap: 10px;
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
             flex-wrap: wrap;
         }
 
         .file-status {
             font-size: 12px;
-            color: #10b981;
             font-weight: 500;
+        }
+
+        .file-status.ok {
+            color: var(--success);
+        }
+
+        .file-status.err {
+            color: var(--danger);
+        }
+
+        .bottom-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 12px;
+        }
+
+        .total {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .mobile-expand-btn {
+            display: none;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+        }
+
+        .mobile-collapse-btn {
+            display: none;
         }
 
         @media (max-width: 768px) {
             body {
-                min-width: 100%;
                 align-items: flex-start;
                 padding: 0;
             }
 
-            /* 整体容器在窄屏下撑满屏幕，取消圆角和阴影 */
             .app {
                 flex-direction: column;
                 width: 100%;
                 max-width: 100%;
-                /* 覆盖之前的600px限制，窄屏下必须撑满 */
                 height: auto;
                 min-height: 100vh;
-                min-width: 100%;
                 border-radius: 0;
                 box-shadow: none;
             }
 
-            /* 隐藏展开/收起按钮 */
             .toggle-btn {
                 display: none !important;
             }
 
-            /* 【核心修改】：日历面板宽度严格等于100%，与下方右面板保持一致 */
             .cal-panel {
                 width: 100% !important;
-                max-width: 100% !important;
                 border-right: none;
                 border-bottom: 1px solid var(--border);
-                height: 300px;
+                height: 380px;
             }
 
-            /* 收起状态下的样式 */
             .app.mobile-collapsed .cal-panel {
                 height: 0 !important;
                 border-bottom: none;
+                overflow: hidden;
             }
 
             .app.mobile-collapsed .mobile-expand-btn {
@@ -677,49 +648,39 @@
             }
 
             .mobile-collapse-btn {
+                display: inline;
                 font-size: 11px;
                 padding: 2px 8px;
                 border: none;
-                color: #6b7280;
-                display: inline;
+                color: var(--text-secondary);
+                background: none;
+                cursor: pointer;
             }
 
-            /* 确保右侧面板在窄屏下也撑满宽度 */
             .right-panel {
                 width: 100%;
                 max-width: 100%;
             }
 
-            /* 1. 禁止日历单元格的文字被选中（防止滑动时出现蓝色高亮） */
-            .day,
-            .calendar-grid {
-                -webkit-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
-            }
-
-            /* 2. 强制输入框字号为 16px，防止 iOS 自动放大页面 */
             input[type="date"],
             input[type="number"] {
                 font-size: 16px !important;
-                -webkit-text-size-adjust: 100%;
             }
         }
     </style>
 </head>
 
 <body>
-
     <div class="app mobile-collapsed" id="app">
-        <button class="toggle-btn" id="toggleBtn" title="展开/收起日历">◀</button>
+        <button class="toggle-btn" id="toggleBtn" title="展开/收起日历" aria-label="展开或收起日历面板">◀</button>
 
-        <div class="cal-panel">
+        <div class="cal-panel" role="region" aria-label="日历选择面板">
             <div class="cal-header">
                 <span>🗓️ 日历</span>
-                <button class="btn-ghost mobile-collapse-btn" id="mobileCollapseBtn">收起 ▲</button>
+                <button class="mobile-collapse-btn" id="mobileCollapseBtn">收起 ▲</button>
             </div>
-            <div id="calTitle" class="cal-title">2026年7月</div>
-            <div class="weekdays">
+            <div id="calTitle" class="cal-title" aria-live="polite">2025年7月</div>
+            <div class="weekdays" aria-hidden="true">
                 <div>一</div>
                 <div>二</div>
                 <div>三</div>
@@ -729,7 +690,7 @@
                 <div>日</div>
             </div>
             <div class="cal-scroll" id="calScroll">
-                <div class="grid" id="calGrid"></div>
+                <div class="grid" id="calGrid" role="listbox" aria-multiselectable="true" aria-label="日期选择网格"></div>
             </div>
         </div>
 
@@ -738,18 +699,18 @@
 
             <div class="top-bar">
                 <div class="grp">
-                    <label>开始日期</label>
+                    <label for="startDate">开始日期</label>
                     <input type="date" id="startDate">
-
                 </div>
                 <div class="grp">
-                    <label>结束日期</label>
+                    <label for="endDate">结束日期</label>
                     <input type="date" id="endDate">
                 </div>
-                <button class="btn btn-p" onclick="calcRange()">生成区间</button>
-                <button class="btn btn-d" onclick="clearAll()">全部清除</button>
-                <button class="btn btn-ghost" onclick="clearSelected()"
-                    style="border-color:#ef4444; color:#ef4444;">清除选中</button>
+                <button class="btn btn-primary" id="btnCalcRange">生成区间</button>
+                <button class="btn btn-danger" id="btnClearAll">全部清除</button>
+                <button class="btn btn-ghost" id="btnClearSelected"
+                    style="border-color:var(--danger);color:var(--danger);">清除选中</button>
+                <button class="btn btn-ghost btn-undo" id="btnUndo" title="撤销上一步操作">↩ 撤销</button>
             </div>
 
             <div class="tbl">
@@ -765,776 +726,1031 @@
                 </div>
                 <div class="row" id="daysRow">
                     <div class="lbl">天数</div>
-                    <input type="number" data-d="1" value="0" readonly>
-                    <input type="number" data-d="2" value="0" readonly>
-                    <input type="number" data-d="3" value="0" readonly>
-                    <input type="number" data-d="4" value="0" readonly>
-                    <input type="number" data-d="5" value="0" readonly>
-                    <input type="number" data-d="6" value="0" readonly>
-                    <input type="number" data-d="0" value="0" readonly>
+                    <input type="number" data-d="1" value="0" readonly aria-label="周一天数">
+                    <input type="number" data-d="2" value="0" readonly aria-label="周二天数">
+                    <input type="number" data-d="3" value="0" readonly aria-label="周三天数">
+                    <input type="number" data-d="4" value="0" readonly aria-label="周四天数">
+                    <input type="number" data-d="5" value="0" readonly aria-label="周五天数">
+                    <input type="number" data-d="6" value="0" readonly aria-label="周六天数">
+                    <input type="number" data-d="0" value="0" readonly aria-label="周日天数">
                 </div>
                 <div class="row" id="sessRow">
                     <div class="lbl">单日场次</div>
-                    <input type="number" data-s="1" value="1" min="0"><input type="number" data-s="2" value="1" min="0">
-                    <input type="number" data-s="3" value="1" min="0"><input type="number" data-s="4" value="1" min="0">
-                    <input type="number" data-s="5" value="1" min="0"><input type="number" data-s="6" value="1" min="0">
-                    <input type="number" data-s="0" value="1" min="0">
-                </div>
-                <div class="batch-row">
-                    <label>一键批量:</label>
-                    <input type="number" id="batchSessInput" value="1" min="0" placeholder="场次">
-                    <button class="btn btn-apply" onclick="applyBatchSess()">应用到全部</button>
+                    <input type="number" data-s="1" value="1" min="0" aria-label="周一场次">
+                    <input type="number" data-s="2" value="1" min="0" aria-label="周二场次">
+                    <input type="number" data-s="3" value="1" min="0" aria-label="周三场次">
+                    <input type="number" data-s="4" value="1" min="0" aria-label="周四场次">
+                    <input type="number" data-s="5" value="1" min="0" aria-label="周五场次">
+                    <input type="number" data-s="6" value="1" min="0" aria-label="周六场次">
+                    <input type="number" data-s="0" value="1" min="0" aria-label="周日场次">
                 </div>
 
+                <div class="batch-row">
+                    <label for="batchSessInput">一键批量:</label>
+                    <input type="number" id="batchSessInput" value="1" min="0">
+                    <button class="btn btn-success" id="btnBatchApply">应用到全部单日场次</button>
+                </div>
                 <div class="special-sess-row">
                     <label>特殊场次:</label>
-                    <div class="date-input-wrapper">
-                        <input type="date" id="specialDateInput">
-                    </div>
-                    <input type="number" id="specialSessInput" value="1" min="1">
-                    <button class="btn btn-add" onclick="addSpecialSess()">添加</button>
+                    <input type="date" id="specialStartDate" title="开始日期">
+                    <span style="font-size:12px;color:var(--text-secondary);">至</span>
+                    <input type="date" id="specialEndDate" title="结束日期">
+                    <input type="number" id="specialSessInput" value="1" min="0" style="width:50px;" title="场次">
+                    <button class="btn btn-warning" id="btnAddSpecial">添加</button>
                 </div>
-                <div class="special-list" id="specialList"></div>
+
+                <div class="special-list" id="specialList" aria-label="特殊场次列表"></div>
             </div>
 
-            <div class="bottom-stats">
+            <div class="bottom-stats" aria-label="统计信息">
                 <div class="stat-card workdays"><label>工作日</label>
-                    <div class="num" id="bottomWorkdays">0</div>
+                    <div class="num" id="statWorkdays">0</div>
                 </div>
                 <div class="stat-card holidays"><label>公休日</label>
-                    <div class="num" id="bottomHolidays">0</div>
+                    <div class="num" id="statHolidays">0</div>
                 </div>
                 <div class="stat-card weekend-work"><label>周末班</label>
-                    <div class="num" id="bottomWeekendWork">0</div>
+                    <div class="num" id="statWeekendWork">0</div>
                 </div>
                 <div class="stat-card total-days"><label>总天数</label>
-                    <div class="num" id="bottomTotalDays">0</div>
+                    <div class="num" id="statTotalDays">0</div>
                 </div>
             </div>
 
             <div class="file-area">
                 <span>上传排班JSON:</span>
                 <input type="file" id="jsonFile" accept=".json" style="font-size:12px;">
-                <button class="btn-ghost" onclick="clearJson()" title="清除已上传的文件配置">×</button>
+                <button class="btn-ghost" id="btnClearJson" title="清除导入的排班数据（硬编码保留）">×</button>
                 <span class="file-status" id="fileStatus"></span>
             </div>
 
             <div class="bottom-bar">
-                <div style="font-size:13px; color:#6b7280;" id="status">就绪</div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:14px; color:#6b7280;">总场次：</span>
-                    <div class="total" id="grandTotalBottom">0</div>
+                <div class="status-text" id="statusText" aria-live="polite">就绪</div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:14px;color:var(--text-secondary);">总场次：</span>
+                    <div class="total" id="grandTotal">0</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const calGrid = document.getElementById('calGrid');
-        const calScroll = document.getElementById('calScroll');
-        const calTitle = document.getElementById('calTitle');
+        (() => {
+            'use strict';
 
-        let selected = new Set();
-        let holidays = new Set();
-        let weekendWorkdays = new Set();
-        const specialSessMap = new Map();
-        const today = new Date();
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        const startDateEl = document.getElementById('startDate');
-        const endDateEl = document.getElementById('endDate');
-
-        let mouseDown = false;
-        let mouseDragStart = null;
-        let mouseWasSel = false;
-        let mouseLastHover = null;
-
-        let touchActive = false;
-        let touchTimer = null;
-        let touchDragMode = false;   
-        let touchDragStart = null;
-        let touchWasSel = false;
-        let touchLastHover = null;
-        let touchStartX = 0, touchStartY = 0;
-        let touchMoved = false;
-
-        let lastTouchEndTime = 0;
-        const GHOST_CLICK_GAP = 500; 
-
-        const MOVE_THRESHOLD = 10;
-        const LONG_PRESS_MS = 400;
-
-        // --- 工具函数：将日期字符串或对象标准化为 YYYY-MM-DD 格式 ---
-        function formatDate(dateInput) {
-            let date;
-            if (typeof dateInput === 'string') {
-                // 处理 "YYYY/MM/DD" 或 "YYYY-MM-DD" 等常见字符串
-                date = new Date(dateInput.replace(/-/g, '/'));
-            } else if (dateInput instanceof Date) {
-                date = dateInput;
-            } else {
-                // 如果格式无法解析，返回 null
-                return null;
-            }
-
-            // 检查是否为有效日期
-            if (isNaN(date.getTime())) return null;
-
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        }
-
-        function toggleCal() {
-            const app = document.getElementById('app');
-            const toggleBtn = document.getElementById('toggleBtn');
-            app.classList.toggle('collapsed');
-            const isCollapsed = app.classList.contains('collapsed');
-            if (toggleBtn) toggleBtn.innerHTML = isCollapsed ? '▶' : '◀';
-        }
-
-        function mobileToggleCal() {
-            const app = document.getElementById('app');
-            app.classList.toggle('mobile-collapsed');
-        }
-        document.getElementById('toggleBtn').addEventListener('click', toggleCal);
-        document.getElementById('mobileExpandBtn').addEventListener('click', mobileToggleCal);
-        document.getElementById('mobileCollapseBtn').addEventListener('click', mobileToggleCal);
-
-        const toTime = s => new Date(s).getTime();
-        function getRange(s, e) {
-            let start = new Date(Math.min(toTime(s), toTime(e)));
-            let end = new Date(Math.max(toTime(s), toTime(e)));
-            let res = [];
-            while (start <= end) {
-                res.push(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`);
-                start.setDate(start.getDate() + 1);
-            }
-            return res;
-        }
-
-        function cellAt(x, y) {
-            const el = document.elementFromPoint(x, y);
-            return el ? el.closest('.day:not(.hide)') : null;
-        }
-
-        function highlightRange(start, end) {
-            document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
-            if (!start || !end) return;
-            getRange(start, end).forEach(d => {
-                const c = calGrid.querySelector(`.day[data-date="${d}"]`);
-                if (c) c.classList.add('drag');
-            });
-        }
-
-        function commitRange(start, end, wasSel) {
-            if (!start || !end) return;
-            getRange(start, end).forEach(d => wasSel ? selected.delete(d) : selected.add(d));
-            document.querySelectorAll('.day.drag').forEach(c => c.classList.remove('drag'));
-            syncUI();
-        }
-
-        /* ========== 全局设备状态感知 ========== */
-        document.addEventListener('touchstart', () => {
-            document.body.classList.add('touch-active');
-        }, { passive: true });
-
-        document.addEventListener('pointermove', (e) => {
-            if (e.pointerType === 'mouse' && (Date.now() - lastTouchEndTime > GHOST_CLICK_GAP)) {
-                if (document.body.classList.contains('touch-active')) {
-                    document.body.classList.remove('touch-active');
+            // ==================== 配置 ====================
+            const CONFIG = {
+                interaction: {
+                    moveThreshold: 10,
+                    longPressMs: 400,
+                    ghostClickGap: 350,
+                    autoScrollEdge: 40,
+                    autoScrollSpeed: 10,
+                },
+                render: {
+                    scrollDelay: 50,
+                    defaultMonthsBefore: 3,
+                    defaultMonthsAfter: 6,
+                    maxRenderDays: 365,
+                },
+                file: {
+                    maxSizeKB: 500,
+                },
+                history: {
+                    maxSteps: 50,
                 }
+            };
+
+            // ==================== 硬编码放假安排（2026 年，国务院公布） ====================
+            // 作为基础层，任何时候都生效；上传 JSON 时叠加在其上，导入优先
+            const DEFAULT_HOLIDAYS = [
+                '2026-01-01', '2026-01-02', '2026-01-03',
+                '2026-02-15', '2026-02-16', '2026-02-17', '2026-02-18',
+                '2026-02-19', '2026-02-20', '2026-02-21', '2026-02-22', '2026-02-23',
+                '2026-04-04', '2026-04-05', '2026-04-06',
+                '2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04', '2026-05-05',
+                '2026-06-19', '2026-06-20', '2026-06-21',
+                '2026-09-25', '2026-09-26', '2026-09-27',
+                '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04',
+                '2026-10-05', '2026-10-06', '2026-10-07'
+            ];
+
+            const DEFAULT_WEEKEND_WORKDAYS = [
+                '2026-01-04', '2026-02-14', '2026-02-28',
+                '2026-05-09', '2026-09-20', '2026-10-10'
+            ];
+
+            // ==================== 状态管理 ====================
+            const today = new Date();
+
+            const state = {
+                selected: new Set(),
+
+                // 合并后的生效数据（硬编码 + 导入，供渲染/计算用）
+                holidays: new Set(),
+                weekendWorkdays: new Set(),
+
+                // 导入的部分（不持久化，刷新丢失；用于和硬编码合并）
+                importedHolidays: new Set(),
+                importedWeekendWorkdays: new Set(),
+
+                specialSessMap: new Map(),
+                weekdaySess: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 0: 1 },
+
+                renderRange: {
+                    start: new Date(today.getFullYear(), today.getMonth() - CONFIG.render.defaultMonthsBefore, 1),
+                    end: new Date(today.getFullYear(), today.getMonth() + CONFIG.render.defaultMonthsAfter + 1, 0),
+                },
+            };
+
+            // 合并硬编码 + 导入，写入 state.holidays / state.weekendWorkdays
+            // 导入优先：同一天两边都有时，Set 自动去重，值本身一致（都是日期字符串）
+            function rebuildEffective() {
+                state.holidays = new Set([...DEFAULT_HOLIDAYS, ...state.importedHolidays]);
+                state.weekendWorkdays = new Set([...DEFAULT_WEEKEND_WORKDAYS, ...state.importedWeekendWorkdays]);
             }
-        }, { passive: true });
 
-        /* ========== 鼠标事件 ========== */
-        calGrid.addEventListener('mousedown', (e) => {
-            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) return;
-            if (e.button !== 0) return;
-            const cell = e.target.closest('.day:not(.hide)');
-            if (!cell) return;
+            // 撤销历史栈
+            const history = [];
 
-            e.preventDefault();
-            mouseDown = true;
-            mouseDragStart = cell.dataset.date;
-            mouseWasSel = cell.classList.contains('sel');
-            mouseLastHover = mouseDragStart;
-            highlightRange(mouseDragStart, mouseDragStart);
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!mouseDown) return;
-            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) return;
-            
-            const cell = cellAt(e.clientX, e.clientY);
-            if (cell && cell.dataset.date) {
-                mouseLastHover = cell.dataset.date;
-                highlightRange(mouseDragStart, mouseLastHover);
+            function pushHistory() {
+                history.push({
+                    selected: new Set(state.selected),
+                    specialSessMap: new Map(state.specialSessMap),
+                });
+                if (history.length > CONFIG.history.maxSteps) history.shift();
             }
-            const r = calScroll.getBoundingClientRect();
-            if (e.clientY < r.top + 30) calScroll.scrollTop -= 12;
-            else if (e.clientY > r.bottom - 30) calScroll.scrollTop += 12;
-        });
 
-        document.addEventListener('mouseup', () => {
-            if (!mouseDown) return;
-            if (Date.now() - lastTouchEndTime < GHOST_CLICK_GAP) {
-                mouseDown = false;
-                mouseDragStart = null;
-                return;
-            }
-            commitRange(mouseDragStart, mouseLastHover, mouseWasSel);
-            mouseDown = false;
-            mouseDragStart = null;
-        });
-
-        calGrid.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        /* ========== 触摸事件 ========== */
-        calScroll.addEventListener('touchmove', (e) => {
-            if (touchDragMode) e.preventDefault();
-        }, { passive: false });
-
-        calGrid.addEventListener('touchstart', (e) => {
-            const t = e.touches[0];
-            const cell = e.target.closest('.day:not(.hide)');
-            if (!cell) return;
-
-            touchActive = true;
-            touchDragMode = false;
-            touchMoved = false;
-            touchStartX = t.clientX;
-            touchStartY = t.clientY;
-            touchDragStart = cell.dataset.date;
-            touchWasSel = cell.classList.contains('sel');
-            touchLastHover = touchDragStart;
-
-            touchTimer = setTimeout(() => {
-                if (!touchActive) return;
-                touchDragMode = true;
-                if (navigator.vibrate) navigator.vibrate(30);
-                cell.classList.add('pressing');
-                setTimeout(() => cell.classList.remove('pressing'), 150);
-                calScroll.classList.add('no-touch-scroll');
-                highlightRange(touchDragStart, touchDragStart);
-            }, LONG_PRESS_MS);
-
-        }, { passive: true });
-
-        calGrid.addEventListener('touchmove', (e) => {
-            if (!touchActive) return;
-            const t = e.touches[0];
-            const dx = t.clientX - touchStartX;
-            const dy = t.clientY - touchStartY;
-
-            if (!touchDragMode) {
-                if (Math.sqrt(dx*dx + dy*dy) > MOVE_THRESHOLD) {
-                    clearTimeout(touchTimer);
-                    touchTimer = null;
-                    touchMoved = true;
+            function undo() {
+                if (!history.length) {
+                    setStatus('没有可撤销的操作');
+                    return;
                 }
-                return;
+                const prev = history.pop();
+                state.selected = prev.selected;
+                state.specialSessMap = prev.specialSessMap;
+                renderSpecialList();
+                syncUI();
+                setStatus('已撤销');
             }
 
-            e.preventDefault();
-            const cell = cellAt(t.clientX, t.clientY);
-            if (cell && cell.dataset.date) {
-                touchLastHover = cell.dataset.date;
-                highlightRange(touchDragStart, touchLastHover);
+            // ==================== DOM 缓存 ====================
+            const $ = id => document.getElementById(id);
+            const dom = {
+                app: $('app'),
+                calGrid: $('calGrid'),
+                calScroll: $('calScroll'),
+                calTitle: $('calTitle'),
+                toggleBtn: $('toggleBtn'),
+                mobileExpandBtn: $('mobileExpandBtn'),
+                mobileCollapseBtn: $('mobileCollapseBtn'),
+                startDate: $('startDate'),
+                endDate: $('endDate'),
+                batchSessInput: $('batchSessInput'),
+                specialStartDate: $('specialStartDate'),
+                specialEndDate: $('specialEndDate'),
+                specialSessInput: $('specialSessInput'),
+                specialList: $('specialList'),
+                jsonFile: $('jsonFile'),
+                fileStatus: $('fileStatus'),
+                statusText: $('statusText'),
+                grandTotal: $('grandTotal'),
+                statWorkdays: $('statWorkdays'),
+                statHolidays: $('statHolidays'),
+                statWeekendWork: $('statWeekendWork'),
+                statTotalDays: $('statTotalDays'),
+                btnCalcRange: $('btnCalcRange'),
+                btnClearAll: $('btnClearAll'),
+                btnClearSelected: $('btnClearSelected'),
+                btnUndo: $('btnUndo'),
+                btnBatchApply: $('btnBatchApply'),
+                btnAddSpecial: $('btnAddSpecial'),
+                btnClearJson: $('btnClearJson'),
+                daysInputs: [...document.querySelectorAll('#daysRow input[data-d]')],
+                weekdaySessInputs: [...document.querySelectorAll('#sessRow input[data-s]')],
+            };
+
+            const cellMap = new Map();
+
+            // ==================== 工具函数 ====================
+            function getDayOfWeek(dateStr) {
+                const [y, m, d] = dateStr.split('-').map(Number);
+                return new Date(y, m - 1, d).getDay();
             }
 
-            const r = calScroll.getBoundingClientRect();
-            if (t.clientY < r.top + 40) {
-                calScroll.scrollTop -= 8;
-                requestAnimationFrame(() => {
-                    const c2 = cellAt(t.clientX, t.clientY);
-                    if (c2 && c2.dataset.date) { touchLastHover = c2.dataset.date; highlightRange(touchDragStart, touchLastHover); }
+            function dateToStr(date) {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+
+            function parseDate(str) {
+                if (!str) return null;
+                const [y, m, d] = str.split('-').map(Number);
+                const date = new Date(y, m - 1, d);
+                if (isNaN(date.getTime())) return null;
+                if (date.getMonth() !== m - 1 || date.getDate() !== d) return null;
+                return date;
+            }
+
+            function formatDateInput(input) {
+                if (!input) return null;
+                const normalized = String(input).replace(/\//g, '-');
+                const date = parseDate(normalized);
+                if (!date) return null;
+                return dateToStr(date);
+            }
+
+            function getRangeDates(startStr, endStr) {
+                const start = parseDate(startStr);
+                const end = parseDate(endStr);
+                if (!start || !end) return [];
+                const s = start <= end ? start : end;
+                const e = start <= end ? end : start;
+                const result = [];
+                const cur = new Date(s);
+                while (cur <= e) {
+                    result.push(dateToStr(cur));
+                    cur.setDate(cur.getDate() + 1);
+                }
+                return result;
+            }
+
+            function setStatus(msg) {
+                dom.statusText.textContent = msg;
+            }
+
+            // ==================== 日历渲染 ====================
+            let monthObserver = null;
+
+            function renderCal(start, end) {
+                if (start && end) {
+                    state.renderRange = { start, end };
+                } else {
+                    start = state.renderRange.start;
+                    end = state.renderRange.end;
+                }
+
+                const todayStr = dateToStr(new Date());
+                const fragment = document.createDocumentFragment();
+                cellMap.clear();
+
+                const firstDay = start.getDay();
+                const offset = firstDay === 0 ? 6 : firstDay - 1;
+                for (let i = 0; i < offset; i++) {
+                    const d = document.createElement('div');
+                    d.className = 'day hide';
+                    d.setAttribute('aria-hidden', 'true');
+                    fragment.appendChild(d);
+                }
+
+                let lastMonth = -1;
+                let todayCell = null;
+                const cur = new Date(start);
+
+                while (cur <= end) {
+                    const ds = dateToStr(cur);
+                    const m = cur.getMonth();
+                    const cell = document.createElement('div');
+                    cell.className = 'day';
+                    cell.textContent = cur.getDate();
+                    cell.dataset.date = ds;
+                    cell.setAttribute('role', 'option');
+                    cell.setAttribute('tabindex', '0');
+                    cell.setAttribute('aria-label', `${cur.getFullYear()}年${m + 1}月${cur.getDate()}日`);
+                    cell.setAttribute('aria-selected', state.selected.has(ds) ? 'true' : 'false');
+
+                    if (m !== lastMonth) {
+                        cell.classList.add('ph');
+                        cell.dataset.m = `${m + 1}月`;
+                        lastMonth = m;
+                    }
+
+                    if (ds === todayStr) {
+                        cell.classList.add('today');
+                        todayCell = cell;
+                    }
+
+                    if (state.selected.has(ds)) cell.classList.add('sel');
+                    if (state.holidays.has(ds)) cell.classList.add('holiday');
+                    if (state.weekendWorkdays.has(ds)) cell.classList.add('weekend-work');
+
+                    cellMap.set(ds, cell);
+                    fragment.appendChild(cell);
+                    cur.setDate(cur.getDate() + 1);
+                }
+
+                for (let i = 0; i < 14; i++) {
+                    const d = document.createElement('div');
+                    d.className = 'day hide';
+                    d.setAttribute('aria-hidden', 'true');
+                    fragment.appendChild(d);
+                }
+
+                dom.calGrid.innerHTML = '';
+                dom.calGrid.appendChild(fragment);
+
+                if (todayCell) {
+                    setTimeout(() => {
+                        const scrollTarget = todayCell.offsetTop - (dom.calScroll.clientHeight / 2) + (todayCell.offsetHeight / 2);
+                        dom.calScroll.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
+                    }, CONFIG.render.scrollDelay);
+                }
+
+                setupMonthObserver();
+            }
+
+            let monthUpdateRaf = null;
+            let lastMonthYM = null;
+
+            function setupMonthObserver() {
+                if (monthObserver) monthObserver.disconnect();
+
+                const monthMarkers = dom.calGrid.querySelectorAll('.day.ph');
+                if (!monthMarkers.length) return;
+
+                monthObserver = new IntersectionObserver((entries) => {
+                    for (const entry of entries) {
+                        if (entry.isIntersecting) {
+                            const dateStr = entry.target.dataset.date;
+                            if (dateStr) {
+                                const [y, m] = dateStr.split('-');
+                                const ym = `${y}-${m}`;
+                                if (ym === lastMonthYM) break;
+                                lastMonthYM = ym;
+
+                                if (monthUpdateRaf) cancelAnimationFrame(monthUpdateRaf);
+                                monthUpdateRaf = requestAnimationFrame(() => {
+                                    dom.calTitle.textContent = `${y}年${parseInt(m)}月`;
+                                    cellMap.forEach((cell, ds) => {
+                                        cell.classList.toggle('out-of-month', !ds.startsWith(ym));
+                                    });
+                                });
+                            }
+                            break;
+                        }
+                    }
+                }, {
+                    root: dom.calScroll,
+                    rootMargin: '-10% 0px -80% 0px',
+                    threshold: 0
                 });
-            } else if (t.clientY > r.bottom - 40) {
-                calScroll.scrollTop += 8;
-                requestAnimationFrame(() => {
-                    const c2 = cellAt(t.clientX, t.clientY);
-                    if (c2 && c2.dataset.date) { touchLastHover = c2.dataset.date; highlightRange(touchDragStart, touchLastHover); }
+
+                monthMarkers.forEach(marker => monthObserver.observe(marker));
+            }
+
+            // ==================== 计算引擎 ====================
+            function computeStats() {
+                const counts = [0, 0, 0, 0, 0, 0, 0];
+                let workdays = 0, holis = 0, weekendWork = 0;
+                let totalSessions = 0;
+
+                const allDates = new Set([...state.selected, ...state.specialSessMap.keys()]);
+
+                allDates.forEach(ds => {
+                    const dow = getDayOfWeek(ds);
+                    counts[dow]++;
+
+                    const isWeekendWork = state.weekendWorkdays.has(ds);
+                    const isWorkdayHoliday = !isWeekendWork && dow >= 1 && dow <= 5 && state.holidays.has(ds);
+                    const isNormalWorkday = !isWeekendWork && !isWorkdayHoliday && dow >= 1 && dow <= 5;
+
+                    if (isWorkdayHoliday) holis++;
+                    if (isWeekendWork) weekendWork++;
+                    if (isWeekendWork || isNormalWorkday) workdays++;
+
+                    const sess = state.specialSessMap.has(ds)
+                        ? state.specialSessMap.get(ds)
+                        : (state.weekdaySess[dow] || 0);
+                    totalSessions += sess;
+                });
+
+                return { counts, workdays, holis, weekendWork, totalDays: allDates.size, totalSessions };
+            }
+
+            // ==================== 渲染层 ====================
+            function renderStats(stats) {
+                dom.daysInputs.forEach(i => {
+                    i.value = stats.counts[i.dataset.d];
+                });
+                dom.statWorkdays.textContent = stats.workdays;
+                dom.statHolidays.textContent = stats.holis;
+                dom.statWeekendWork.textContent = stats.weekendWork;
+                dom.statTotalDays.textContent = stats.totalDays;
+                dom.grandTotal.textContent = stats.totalSessions;
+            }
+
+            function syncUI() {
+                cellMap.forEach((cell, ds) => {
+                    const isSel = state.selected.has(ds);
+                    cell.classList.toggle('sel', isSel);
+                    cell.setAttribute('aria-selected', isSel ? 'true' : 'false');
+                    cell.classList.toggle('holiday', state.holidays.has(ds));
+                    cell.classList.toggle('weekend-work', state.weekendWorkdays.has(ds));
+                });
+                recalc();
+            }
+
+            function recalc() {
+                renderStats(computeStats());
+            }
+
+            function syncSessInputs() {
+                dom.weekdaySessInputs.forEach(i => {
+                    i.value = state.weekdaySess[i.dataset.s];
                 });
             }
 
-        }, { passive: false });
+            // ==================== 拖拽交互 ====================
+            let lastDragRange = new Set();
 
-        calGrid.addEventListener('touchend', () => {
-            lastTouchEndTime = Date.now(); 
-            clearTimeout(touchTimer);
-            touchTimer = null;
+            function highlightRange(startStr, endStr, isRemoveMode) {
+                const newRange = new Set(getRangeDates(startStr, endStr));
+                const modeClass = isRemoveMode ? 'drag-remove' : 'drag-add';
+                const otherClass = isRemoveMode ? 'drag-add' : 'drag-remove';
 
-            if (touchDragMode) {
-                commitRange(touchDragStart, touchLastHover, touchWasSel);
-                calScroll.classList.remove('no-touch-scroll');
-            } else if (!touchMoved && touchDragStart) {
-                if (selected.has(touchDragStart)) selected.delete(touchDragStart);
-                else selected.add(touchDragStart);
+                lastDragRange.forEach(d => {
+                    if (!newRange.has(d)) {
+                        const cell = cellMap.get(d);
+                        if (cell) cell.classList.remove('drag-add', 'drag-remove');
+                    }
+                });
+
+                newRange.forEach(d => {
+                    const cell = cellMap.get(d);
+                    if (cell) {
+                        cell.classList.remove(otherClass);
+                        cell.classList.add(modeClass);
+                    }
+                });
+
+                lastDragRange = newRange;
+            }
+
+            function clearDragHighlight() {
+                lastDragRange.forEach(d => {
+                    const cell = cellMap.get(d);
+                    if (cell) cell.classList.remove('drag-add', 'drag-remove');
+                });
+                lastDragRange = new Set();
+            }
+
+            function commitRange(startStr, endStr, wasSelected) {
+                if (!startStr || !endStr) return;
+                pushHistory();
+                const dates = getRangeDates(startStr, endStr);
+                dates.forEach(d => {
+                    if (wasSelected) state.selected.delete(d);
+                    else state.selected.add(d);
+                });
+                clearDragHighlight();
                 syncUI();
             }
 
-            touchActive = false;
-            touchDragMode = false;
-            touchDragStart = null;
-        });
-
-        calGrid.addEventListener('touchcancel', () => {
-            lastTouchEndTime = Date.now();
-            clearTimeout(touchTimer);
-            touchTimer = null;
-            touchActive = false;
-            touchDragMode = false;
-            touchDragStart = null;
-            calScroll.classList.remove('no-touch-scroll');
-            document.querySelectorAll('.day.drag, .day.pressing').forEach(c => {
-                c.classList.remove('drag', 'pressing');
-            });
-        });
-
-        function renderCal(cStart, cEnd) {
-            calGrid.innerHTML = '';
-            const start = cStart || new Date(today.getFullYear(), today.getMonth() - 3, 1);
-            const end = cEnd || new Date(today.getFullYear(), today.getMonth() + 6, 0);
-            let cur = new Date(start), lastM = -1;
-
-            // 补齐第一周前面的空白格子
-            const off = cur.getDay() === 0 ? 6 : cur.getDay() - 1;
-            for (let i = 0; i < off; i++) {
-                const d = document.createElement('div');
-                d.className = 'day hide';
-                calGrid.appendChild(d);
+            function cellAtPoint(x, y) {
+                const el = document.elementFromPoint(x, y);
+                return el ? el.closest('.day:not(.hide)') : null;
             }
 
-            let todayCell = null; // 记录今天的 DOM 元素
-
-            while (cur <= end) {
-                const y = cur.getFullYear();
-                const m = cur.getMonth();
-                const dt = cur.getDate();
-                const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(dt).padStart(2, '0')}`;
-                const cell = document.createElement('div');
-                cell.className = 'day';
-                cell.textContent = dt;
-                cell.dataset.date = ds;
-
-                const mainMonth = start.getMonth();
-                if (m !== mainMonth) {
-                    cell.classList.add('out-of-month');
-                }
-
-                // 月份标记
-                if (m !== lastM) {
-                    cell.classList.add('ph');
-                    cell.dataset.m = `${m + 1}月`;
-                    lastM = m;
-                }
-
-                // 【核心修复1】：高亮今天
-                if (ds === todayStr) {
-                    cell.classList.add('today');
-                    todayCell = cell;
-                }
-
-                // 选中状态
-                if (selected.has(ds)) cell.classList.add('sel');
-
-                // 【核心新增】：添加公休日和周末班的样式类
-                if (holidays.has(ds)) cell.classList.add('holiday');
-                if (weekendWorkdays.has(ds)) cell.classList.add('weekend-work');
-
-                calGrid.appendChild(cell);
-                cur.setDate(cur.getDate() + 1);
+            function autoScroll(clientY) {
+                const r = dom.calScroll.getBoundingClientRect();
+                const { autoScrollEdge: edge, autoScrollSpeed: speed } = CONFIG.interaction;
+                if (clientY < r.top + edge) dom.calScroll.scrollTop -= speed;
+                else if (clientY > r.bottom - edge) dom.calScroll.scrollTop += speed;
             }
 
-            for (let i = 0; i < 21; i++) {
-                const d = document.createElement('div');
-                d.className = 'day hide';
-                calGrid.appendChild(d);
-            }
+            // ==================== 鼠标交互 ====================
+            const mouse = { down: false, start: null, wasSel: false, last: null };
+            let lastTouchEndTime = 0;
 
-            // 将今天精准定位到画面中间
-            // 使用 setTimeout 确保 DOM 完全渲染后再执行滚动
-            setTimeout(() => {
-                if (todayCell) {
-                    // 计算今天距离日历顶部的偏移量，减去容器高度的一半，使其居中
-                    const scrollTarget = todayCell.offsetTop - (calScroll.clientHeight / 2 + 100) + (todayCell.offsetHeight / 2);
-                    calScroll.scrollTo({ top: scrollTarget, behavior: 'smooth' });
-                }
-            }, 50);
+            dom.calGrid.addEventListener('mousedown', (e) => {
+                if (Date.now() - lastTouchEndTime < CONFIG.interaction.ghostClickGap) return;
+                if (e.button !== 0) return;
+                const cell = e.target.closest('.day:not(.hide)');
+                if (!cell) return;
 
-
-            calScroll.removeEventListener('scroll', updateCalTitle);
-            calScroll.addEventListener('scroll', updateCalTitle);
-            
-            // 初始渲染时立即执行一次
-            updateCalTitle();
-            
-        }
-
-        function updateCalTitle() {
-            if (!calScroll || !calTitle) return;
-
-            // 获取滚动容器在屏幕上的绝对顶部位置
-            const triggerTop = calScroll.getBoundingClientRect().top;
-
-
-            const days = document.querySelectorAll('.day');
-            if (!days.length) return;
-
-            let curYear, curMonth, curDay;
-
-            // 正序遍历，找到第一个“顶部刚好越过触发线”的【当月日期】
-            for (const day of days) {
-                const dayTop = day.getBoundingClientRect().top;
-
-                // 如果这个格子还在触发线之上，说明还没到它，继续看下一个
-                if (dayTop <= triggerTop) continue;
-                const dateStr = day.dataset.date;
-                if (dateStr) { 
-                    [curYear, curMonth, curDay] = dateStr.split('-');
-                    if (curDay == 1) break;
-                    else continue;
-                }
-                
-            }
-
-            if (!curYear || !curMonth) return;
-
-            const ym = `${curYear}-${curMonth}`;
-            days.forEach(day => {
-                const ds = day.dataset.date;
-                // if (ds && ds.startsWith(ym)) day.classList.remove('out-of-month');
-                // else day.classList.add('out-of-month');
-                day.classList.toggle('out-of-month', ds && !ds.startsWith(ym));
+                e.preventDefault();
+                mouse.down = true;
+                mouse.start = cell.dataset.date;
+                mouse.wasSel = cell.classList.contains('sel');
+                mouse.last = mouse.start;
+                highlightRange(mouse.start, mouse.start, mouse.wasSel);
             });
 
-            calTitle.innerText = `${curYear}年${parseInt(curMonth)}月`;
-        }
+            document.addEventListener('mousemove', (e) => {
+                if (!mouse.down) return;
+                if (Date.now() - lastTouchEndTime < CONFIG.interaction.ghostClickGap) return;
 
-        // 错误提示处理
-        function showDateInputError(id) {
-            hideAllDateInputError();
-            const input = document.getElementById(id);
-            if (!input) return;
-            void input.offsetWidth;
-            input.classList.add('error-flash');
-        }
-
-        function hideAllDateInputError() {
-            document.querySelectorAll('input[type="date"]').forEach(input => {
-                input.classList.remove('error-flash');
+                const cell = cellAtPoint(e.clientX, e.clientY);
+                if (cell && cell.dataset.date) {
+                    mouse.last = cell.dataset.date;
+                    highlightRange(mouse.start, mouse.last, mouse.wasSel);
+                }
+                autoScroll(e.clientY);
             });
-        }
 
-        // 监听所有输入框的聚焦事件
-        document.addEventListener('DOMContentLoaded', () => {
-            const dateInputs = document.querySelectorAll('input');
-            dateInputs.forEach(input => {
-                input.addEventListener('focus', () => {
-                    // 清楚错误提示
-                    hideAllDateInputError();
-                    // 输入框获得焦点时全选内容
-                    setTimeout(() => input.select(), 0);
+            document.addEventListener('mouseup', () => {
+                if (!mouse.down) return;
+                if (Date.now() - lastTouchEndTime < CONFIG.interaction.ghostClickGap) {
+                    mouse.down = false;
+                    clearDragHighlight();
+                    return;
+                }
+                commitRange(mouse.start, mouse.last, mouse.wasSel);
+                mouse.down = false;
+                mouse.start = null;
+            });
+
+            dom.calGrid.addEventListener('contextmenu', e => e.preventDefault());
+
+            // ==================== 触摸交互 ====================
+            const touch = {
+                active: false,
+                dragMode: false,
+                moved: false,
+                start: null,
+                wasSel: false,
+                last: null,
+                startX: 0,
+                startY: 0,
+                timer: null,
+            };
+
+            document.addEventListener('touchstart', () => {
+                document.body.classList.add('touch-active');
+            }, { passive: true });
+
+            document.addEventListener('pointermove', (e) => {
+                if (e.pointerType === 'mouse' && (Date.now() - lastTouchEndTime > CONFIG.interaction.ghostClickGap)) {
+                    document.body.classList.remove('touch-active');
+                }
+            }, { passive: true });
+
+            dom.calScroll.addEventListener('touchmove', (e) => {
+                if (touch.dragMode) e.preventDefault();
+            }, { passive: false });
+
+            dom.calGrid.addEventListener('touchstart', (e) => {
+                const t = e.touches[0];
+                const cell = e.target.closest('.day:not(.hide)');
+                if (!cell) return;
+
+                touch.active = true;
+                touch.dragMode = false;
+                touch.moved = false;
+                touch.startX = t.clientX;
+                touch.startY = t.clientY;
+                touch.start = cell.dataset.date;
+                touch.wasSel = cell.classList.contains('sel');
+                touch.last = touch.start;
+
+                touch.timer = setTimeout(() => {
+                    if (!touch.active) return;
+                    touch.dragMode = true;
+                    if (navigator.vibrate) navigator.vibrate(30);
+                    cell.classList.add('pressing');
+                    setTimeout(() => cell.classList.remove('pressing'), 150);
+                    highlightRange(touch.start, touch.start, touch.wasSel);
+                }, CONFIG.interaction.longPressMs);
+            }, { passive: true });
+
+            dom.calGrid.addEventListener('touchmove', (e) => {
+                if (!touch.active) return;
+                const t = e.touches[0];
+                const dx = t.clientX - touch.startX;
+                const dy = t.clientY - touch.startY;
+
+                if (!touch.dragMode) {
+                    if (Math.sqrt(dx * dx + dy * dy) > CONFIG.interaction.moveThreshold) {
+                        clearTimeout(touch.timer);
+                        touch.timer = null;
+                        touch.moved = true;
+                    }
+                    return;
+                }
+
+                e.preventDefault();
+                const cell = cellAtPoint(t.clientX, t.clientY);
+                if (cell && cell.dataset.date) {
+                    touch.last = cell.dataset.date;
+                    highlightRange(touch.start, touch.last, touch.wasSel);
+                }
+                autoScroll(t.clientY);
+            }, { passive: false });
+
+            dom.calGrid.addEventListener('touchend', () => {
+                lastTouchEndTime = Date.now();
+                clearTimeout(touch.timer);
+                touch.timer = null;
+
+                if (touch.dragMode) {
+                    commitRange(touch.start, touch.last, touch.wasSel);
+                } else if (!touch.moved && touch.start) {
+                    pushHistory();
+                    if (state.selected.has(touch.start)) state.selected.delete(touch.start);
+                    else state.selected.add(touch.start);
+                    syncUI();
+                }
+
+                touch.active = false;
+                touch.dragMode = false;
+                touch.start = null;
+            });
+
+            dom.calGrid.addEventListener('touchcancel', () => {
+                lastTouchEndTime = Date.now();
+                clearTimeout(touch.timer);
+                touch.timer = null;
+                touch.active = false;
+                touch.dragMode = false;
+                touch.start = null;
+                clearDragHighlight();
+                dom.calGrid.querySelectorAll('.pressing').forEach(c => c.classList.remove('pressing'));
+            });
+
+            // ==================== 键盘导航 ====================
+            dom.calGrid.addEventListener('keydown', (e) => {
+                const cell = e.target.closest('.day:not(.hide)');
+                if (!cell) return;
+
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    pushHistory();
+                    const ds = cell.dataset.date;
+                    if (state.selected.has(ds)) state.selected.delete(ds);
+                    else state.selected.add(ds);
+                    syncUI();
+                    return;
+                }
+
+                const dirMap = {
+                    'ArrowLeft': -1,
+                    'ArrowRight': 1,
+                    'ArrowUp': -7,
+                    'ArrowDown': 7,
+                };
+
+                if (dirMap[e.key] !== undefined) {
+                    e.preventDefault();
+                    const ds = cell.dataset.date;
+                    const date = parseDate(ds);
+                    if (!date) return;
+                    date.setDate(date.getDate() + dirMap[e.key]);
+                    const targetStr = dateToStr(date);
+                    const targetCell = cellMap.get(targetStr);
+                    if (targetCell) {
+                        targetCell.focus();
+                        targetCell.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                }
+            });
+
+            // ==================== 业务操作 ====================
+            function calcRange() {
+                const s = dom.startDate.value;
+                const e = dom.endDate.value;
+
+                if (!s) {
+                    showInputError(dom.startDate);
+                    setStatus('⚠️ 请输入开始日期');
+                    return;
+                }
+                if (!e) {
+                    showInputError(dom.endDate);
+                    setStatus('⚠️ 请输入结束日期');
+                    return;
+                }
+
+                pushHistory();
+
+                const dates = getRangeDates(s, e);
+                dates.forEach(d => state.selected.add(d));
+
+                const allSelected = [...state.selected].sort();
+                const minDate = parseDate(allSelected[0]);
+                const maxDate = parseDate(allSelected[allSelected.length - 1]);
+                const dayDiff = Math.round((maxDate - minDate) / 86400000);
+
+                let renderStart, renderEnd;
+                if (dayDiff >= CONFIG.render.maxRenderDays) {
+                    renderStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+                    renderEnd = new Date(minDate.getFullYear(), minDate.getMonth() + 12, 0);
+                    setStatus(`📅 选中跨度 ${dayDiff + 1} 天，仅显示一年视图`);
+                } else {
+                    renderStart = new Date(minDate.getFullYear(), minDate.getMonth() - 1, 1);
+                    renderEnd = new Date(maxDate.getFullYear(), maxDate.getMonth() + 2, 0);
+                    setStatus(`已追加区间，当前共选中 ${state.selected.size} 天`);
+                }
+
+                renderCal(renderStart, renderEnd);
+                syncUI();
+            }
+
+            function clearSelected() {
+                pushHistory();
+                state.selected.clear();
+                syncUI();
+                hideAllInputErrors();
+                setStatus('已清除所有选中的日期');
+            }
+
+            // 「全部清除」：清除选中、特殊场次、单日场次配置，
+            // 但保留硬编码和导入的排班数据
+            function clearAll() {
+                pushHistory();
+                state.selected.clear();
+                state.specialSessMap.clear();
+                state.weekdaySess = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 0: 1 };
+
+                renderSpecialList();
+                syncSessInputs();
+
+                dom.startDate.value = '';
+                dom.endDate.value = '';
+                dom.batchSessInput.value = '1';
+                dom.specialStartDate.value = '';
+                dom.specialEndDate.value = '';
+                dom.specialSessInput.value = '1';
+
+                syncUI();
+                hideAllInputErrors();
+                setStatus('已清空选中和场次配置（排班数据保留）');
+            }
+
+            function applyBatchSess() {
+                const val = parseFloat(dom.batchSessInput.value) || 0;
+                dom.weekdaySessInputs.forEach(input => {
+                    const dow = input.dataset.s;
+                    state.weekdaySess[dow] = val;
+                    input.value = val;
+                });
+                recalc();
+                setStatus(`已将所有单日场次批量设置为 ${val}`);
+            }
+
+            function addSpecialSess() {
+                const startVal = dom.specialStartDate.value;
+                const endVal = dom.specialEndDate.value;
+                const sessVal = parseFloat(dom.specialSessInput.value) || 0;
+
+                if (!startVal) {
+                    showInputError(dom.specialStartDate);
+                    setStatus('⚠️ 请选择特殊场次的开始日期');
+                    return;
+                }
+                if (!endVal) {
+                    showInputError(dom.specialEndDate);
+                    setStatus('⚠️ 请选择特殊场次的结束日期');
+                    return;
+                }
+
+                const s = startVal <= endVal ? startVal : endVal;
+                const e = startVal <= endVal ? endVal : startVal;
+
+                pushHistory();
+
+                const dates = getRangeDates(s, e);
+                dates.forEach(d => state.specialSessMap.set(d, sessVal));
+
+                renderSpecialList();
+                recalc();
+
+                if (s === e) {
+                    setStatus(`已为 ${s} 设置特殊场次: ${sessVal}`);
+                } else {
+                    setStatus(`已为 ${s} ~ ${e}（共 ${dates.length} 天）设置特殊场次: ${sessVal}`);
+                }
+            }
+
+            function renderSpecialList() {
+                dom.specialList.innerHTML = '';
+
+                if (state.specialSessMap.size === 0) return;
+
+                const entries = [...state.specialSessMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+                const groups = [];
+                let groupStart = entries[0][0];
+                let groupEnd = entries[0][0];
+                let groupSess = entries[0][1];
+
+                for (let i = 1; i < entries.length; i++) {
+                    const [date, sess] = entries[i];
+                    const prevDate = parseDate(groupEnd);
+                    prevDate.setDate(prevDate.getDate() + 1);
+                    const nextStr = dateToStr(prevDate);
+
+                    if (date === nextStr && sess === groupSess) {
+                        groupEnd = date;
+                    } else {
+                        groups.push({ start: groupStart, end: groupEnd, sess: groupSess });
+                        groupStart = date;
+                        groupEnd = date;
+                        groupSess = sess;
+                    }
+                }
+                groups.push({ start: groupStart, end: groupEnd, sess: groupSess });
+
+                groups.forEach(g => {
+                    const tag = document.createElement('span');
+                    const label = g.start === g.end
+                        ? `${g.start} (${g.sess}场)`
+                        : `${g.start} ~ ${g.end} (${g.sess}场)`;
+                    tag.textContent = label;
+                    tag.title = '点击删除此区间';
+                    tag.setAttribute('role', 'button');
+                    tag.setAttribute('aria-label', `删除 ${label}`);
+                    tag.addEventListener('click', () => {
+                        pushHistory();
+                        const dates = getRangeDates(g.start, g.end);
+                        dates.forEach(d => state.specialSessMap.delete(d));
+                        renderSpecialList();
+                        recalc();
+                        setStatus(`已删除 ${label}`);
+                    });
+                    dom.specialList.appendChild(tag);
+                });
+            }
+
+            // ==================== JSON 文件处理 ====================
+            function handleJsonUpload(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (file.size > CONFIG.file.maxSizeKB * 1024) {
+                    setFileStatus(`❌ 文件过大（限制 ${CONFIG.file.maxSizeKB}KB）`, false);
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const data = JSON.parse(ev.target.result);
+
+                        if (!data || typeof data !== 'object') throw new Error('JSON 根节点必须是对象');
+                        if (!Array.isArray(data.holidays)) throw new Error('缺少 "holidays" 数组');
+                        if (!Array.isArray(data.weekend_workdays)) throw new Error('缺少 "weekend_workdays" 数组');
+
+                        // 只清空"导入"部分，硬编码保留
+                        state.importedHolidays.clear();
+                        state.importedWeekendWorkdays.clear();
+
+                        data.holidays.forEach(h => {
+                            const formatted = formatDateInput(h);
+                            if (!formatted) throw new Error(`休息日格式错误：${h}`);
+                            state.importedHolidays.add(formatted);
+                        });
+
+                        data.weekend_workdays.forEach(w => {
+                            const formatted = formatDateInput(w);
+                            if (!formatted) throw new Error(`补班日格式错误：${w}`);
+                            state.importedWeekendWorkdays.add(formatted);
+                        });
+
+                        // 合并到生效数据
+                        rebuildEffective();
+
+                        // 统计合并结果
+                        let realHolidays = 0;
+                        state.holidays.forEach(ds => {
+                            const dow = getDayOfWeek(ds);
+                            if (dow >= 1 && dow <= 5) realHolidays++;
+                        });
+
+                        const fromDefaultH = DEFAULT_HOLIDAYS.length;
+                        const fromImportH = state.importedHolidays.size;
+                        const mergedH = state.holidays.size;
+                        const overlapH = fromDefaultH + fromImportH - mergedH;
+
+                        const fromDefaultW = DEFAULT_WEEKEND_WORKDAYS.length;
+                        const fromImportW = state.importedWeekendWorkdays.size;
+                        const mergedW = state.weekendWorkdays.size;
+                        const overlapW = fromDefaultW + fromImportW - mergedW;
+
+                        let msg = `✅ 公休: 硬编码 ${fromDefaultH} + 导入 ${fromImportH}`;
+                        if (overlapH > 0) msg += `（重叠 ${overlapH}）`;
+                        msg += ` | 周末班: 硬编码 ${fromDefaultW} + 导入 ${fromImportW}`;
+                        if (overlapW > 0) msg += `（重叠 ${overlapW}）`;
+
+                        setFileStatus(msg, true);
+                        syncUI();
+
+                    } catch (err) {
+                        setFileStatus(`❌ ${err.message}`, false);
+                    }
+                };
+                reader.onerror = () => setFileStatus('❌ 文件读取失败', false);
+                reader.readAsText(file);
+            }
+
+            // 清除导入数据，回退到硬编码
+            function clearJsonData() {
+                state.importedHolidays.clear();
+                state.importedWeekendWorkdays.clear();
+                rebuildEffective();
+                dom.jsonFile.value = '';
+                dom.fileStatus.textContent = '';
+                dom.fileStatus.className = 'file-status';
+            }
+
+            function setFileStatus(msg, ok) {
+                dom.fileStatus.textContent = msg;
+                dom.fileStatus.className = `file-status ${ok ? 'ok' : 'err'}`;
+            }
+
+            // ==================== 输入错误提示 ====================
+            function showInputError(input) {
+                hideAllInputErrors();
+                input.classList.add('input-error', 'error-flash');
+                input.addEventListener('animationend', () => {
+                    input.classList.remove('error-flash');
+                }, { once: true });
+            }
+
+            function hideAllInputErrors() {
+                document.querySelectorAll('.input-error').forEach(el => {
+                    el.classList.remove('input-error', 'error-flash');
+                });
+            }
+
+            // ==================== 面板展开/收起 ====================
+            function togglePanel() {
+                dom.app.classList.toggle('collapsed');
+                const isCollapsed = dom.app.classList.contains('collapsed');
+                dom.toggleBtn.innerHTML = isCollapsed ? '▶' : '◀';
+            }
+
+            function mobileTogglePanel() {
+                dom.app.classList.toggle('mobile-collapsed');
+            }
+
+            // ==================== 事件绑定 ====================
+            dom.toggleBtn.addEventListener('click', togglePanel);
+            dom.mobileExpandBtn.addEventListener('click', mobileTogglePanel);
+            dom.mobileCollapseBtn.addEventListener('click', mobileTogglePanel);
+            dom.btnCalcRange.addEventListener('click', calcRange);
+            dom.btnClearAll.addEventListener('click', clearAll);
+            dom.btnClearSelected.addEventListener('click', clearSelected);
+            dom.btnUndo.addEventListener('click', undo);
+            dom.btnBatchApply.addEventListener('click', applyBatchSess);
+            dom.btnAddSpecial.addEventListener('click', addSpecialSess);
+            dom.btnClearJson.addEventListener('click', () => {
+                clearJsonData();
+                syncUI();
+                setStatus('已清除导入数据，恢复为硬编码');
+            });
+            dom.jsonFile.addEventListener('change', handleJsonUpload);
+
+            dom.weekdaySessInputs.forEach(i => {
+                i.addEventListener('input', () => {
+                    const dow = i.dataset.s;
+                    state.weekdaySess[dow] = parseFloat(i.value) || 0;
+                    recalc();
                 });
             });
-        });
 
-        startDateEl.addEventListener('change', () => {
-            if (startDateEl.value) {
-                endDateEl.setAttribute('min', startDateEl.value);
-                if (startDateEl.value > endDateEl.value) endDateEl.value = '';
-            }
-            else endDateEl.removeAttribute('min');
-        });
-
-        // 区间生成（追加模式）
-        function calcRange() {
-            const s = startDateEl.value
-            const e = endDateEl.value;
-            if (!s) {
-                showDateInputError('startDate');
-                document.getElementById('status').textContent = '⚠️ 请输入开始日期';
-                return;
-            }
-
-            if (!e) {
-                showDateInputError('endDate');
-                document.getElementById('status').textContent = '⚠️ 请输入结束日期';
-                return;
-            }
-
-            // 1. 加入选中集合
-            let cur = new Date(s);
-            while (cur <= new Date(e)) {
-                selected.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`);
-                cur.setDate(cur.getDate() + 1);
-            }
-
-            const minDateString = [...selected].reduce((min, current) =>
-                current < min ? current : min
-            );
-            const maxDateString = [...selected].reduce((max, current) =>
-                current > max ? current : max
-            );
-
-            const minDateObj = new Date(minDateString);
-            const maxDateObj = new Date(maxDateString);
-
-            // 2. 计算天数差
-            const timeDiff = maxDateObj.getTime() - minDateObj.getTime();
-            const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-
-            // 3. 定义渲染范围变量
-            let renderStart, renderEnd;
-
-            if (dayDiff >= 365) {
-                // 超过一年：只显示开始日期往后一年                
-                renderStart = new Date(minDateObj.getFullYear(), minDateObj.getMonth(), 1);
-                renderEnd = new Date(minDateObj.getFullYear(), minDateObj.getMonth() + 12, 0);
-
-                // 提示用户
-                document.getElementById('status').textContent =
-                    `📅 选中日期跨度达 ${dayDiff + 1} 天，当前只显示一年的日历视图`;
-            } else {
-                // 不超过一年：正常显示完整区间
-                renderStart = new Date(minDateObj.getFullYear(), minDateObj.getMonth() - 1, 1);
-                renderEnd = new Date(maxDateObj.getFullYear(), maxDateObj.getMonth() + 2, 0);
-
-                document.getElementById('status').textContent = `已追加区间，当前共选中 ${selected.size} 天`;
-            }
-
-            // 4. 执行渲染
-            renderCal(renderStart, renderEnd);
-
-            // 5.同步选中状态
-            syncUI();
-        }
-
-        // 核心计算逻辑
-        function syncUI() {
-            document.querySelectorAll('.day').forEach(c => {
-                if (c.dataset.date) c.classList.toggle('sel', selected.has(c.dataset.date));
-            });
-            recalc();
-        }
-
-        function recalc() {
-            const counts = [0, 0, 0, 0, 0, 0, 0];
-            let workdays = 0, holis = 0, weekendWork = 0;
-
-            // 将“特殊场次”的日期与“日历选中”的日期合并，确保只设了特殊场次也能被统计到底部四项中
-            const allDatesToCalc = new Set([...selected, ...specialSessMap.keys()]);
-
-            allDatesToCalc.forEach(ds => {
-                const d = new Date(ds).getDay();
-                counts[d]++;
-
-                if (weekendWorkdays.has(ds)) {
-                    weekendWork++;
-                } else if ((d >= 1 && d <= 5) && holidays.has(ds)) {
-                    holis++;
-                } else if (d >= 1 && d <= 5) {
-                    workdays++;
+            dom.startDate.addEventListener('change', () => {
+                if (dom.startDate.value) {
+                    dom.endDate.setAttribute('min', dom.startDate.value);
+                    if (dom.startDate.value > dom.endDate.value) dom.endDate.value = '';
+                } else {
+                    dom.endDate.removeAttribute('min');
                 }
             });
 
-            // 1. 更新顶部的“天数行”统计
-            document.querySelectorAll('#daysRow input[data-d]').forEach(i => i.value = counts[i.dataset.d]);
-
-            // 2. 更新底部的统计卡片
-            document.getElementById('bottomWorkdays').innerText = workdays;
-            document.getElementById('bottomHolidays').innerText = holis;
-            document.getElementById('bottomWeekendWork').innerText = weekendWork;
-            document.getElementById('bottomTotalDays').innerText = allDatesToCalc.size;
-
-            // 3. 获取常规的星期场次配置
-            const sessMap = {};
-            document.querySelectorAll('#sessRow input[data-s]').forEach(i => sessMap[i.dataset.s] = parseFloat(i.value) || 0);
-
-            // 4. 计算总场次
-            let totalSess = 0;
-            allDatesToCalc.forEach(ds => {
-                const dayOfWeek = new Date(ds).getDay();
-                const sess = specialSessMap.has(ds) ? specialSessMap.get(ds) : (sessMap[dayOfWeek] || 0);
-                totalSess += sess;
-            });
-
-            // 5. 更新底部的总场次显示
-            document.getElementById('grandTotalBottom').textContent = totalSess;
-            // document.getElementById('status').textContent = '统计完成';
-            // document.getElementById('status').textContent = `工作日: ${workdays} | 公休日: ${holis} | 周末班: ${weekendWork}`;
-        }
-
-        // 监听场次输入
-        document.querySelectorAll('#sessRow input[data-s]').forEach(i => i.addEventListener('input', recalc));
-
-        // 批量应用单日场次
-        function applyBatchSess() {
-            const val = parseFloat(document.getElementById('batchSessInput').value) || 0;
-            document.querySelectorAll('#sessRow input[data-s]').forEach(input => {
-                input.value = val;
-            });
-            recalc();
-            document.getElementById('status').textContent = `已将所有单日场次批量设置为 ${val}`;
-        }
-
-        // 添加特殊场次
-        function addSpecialSess() {
-            const dateVal = document.getElementById('specialDateInput').value;
-            const sessVal = parseFloat(document.getElementById('specialSessInput').value) || 0;
-
-            if (!dateVal) {
-                showDateInputError('specialDateInput');
-                document.getElementById('status').textContent = '⚠️ 请先选择需要设置特殊场次的日期';
-                return;
-            }
-
-            specialSessMap.set(dateVal, sessVal);
-            renderSpecialList();
-            recalc();
-            document.getElementById('status').textContent = `已为 ${dateVal} 设置特殊场次: ${sessVal}`;
-        }
-
-        // 渲染特殊场次列表，修复无法删除的问题
-        function renderSpecialList() {
-            const container = document.getElementById('specialList');
-            container.innerHTML = '';
-            specialSessMap.forEach((sess, date) => {
-                const tag = document.createElement('span');
-                tag.textContent = `${date} (${sess}场)`;
-                tag.title = '点击删除此特殊设置';
-                // 使用闭包或直接绑定，确保删除逻辑正确
-                tag.onclick = () => {
-                    specialSessMap.delete(date);
-                    renderSpecialList();
-                    recalc();
-                    document.getElementById('status').textContent = `已删除 ${date} 的特殊场次设置`;
-                };
-                container.appendChild(tag);
-            });
-        }
-
-        // JSON上传处理（增加严格格式验证）
-        document.getElementById('jsonFile').addEventListener('change', function (e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const statusEl = document.getElementById('fileStatus');
-            const reader = new FileReader();
-
-            reader.onload = function (ev) {
-                try {
-                    const data = JSON.parse(ev.target.result);
-
-                    // 1. 验证是否为对象
-                    if (!data || typeof data !== 'object') {
-                        throw new Error('JSON 根节点必须是一个对象');
+            dom.specialStartDate.addEventListener('change', () => {
+                if (dom.specialStartDate.value) {
+                    dom.specialEndDate.setAttribute('min', dom.specialStartDate.value);
+                    if (!dom.specialEndDate.value) dom.specialEndDate.value = dom.specialStartDate.value;
+                    if (dom.specialStartDate.value > dom.specialEndDate.value) {
+                        dom.specialEndDate.value = '';
                     }
-
-                    // 2. 验证是否包含必需的数组字段
-                    if (!Array.isArray(data.holidays)) {
-                        throw new Error('缺少 "holidays" 数组字段');
-                    }
-                    if (!Array.isArray(data.weekend_workdays)) {
-                        throw new Error('缺少 "weekend_workdays" 数组字段');
-                    }
-
-                    // 3. 验证通过，应用数据
-                    holidays.clear();
-                    weekendWorkdays.clear();
-
-                    // 使用格式化函数处理所有日期
-                    data.holidays.forEach(h => {
-                        const formatted = formatDate(h);
-                        if (formatted) holidays.add(formatted)
-                        else throw new Error(`休息日格式错误：${h}`);
-                    });
-
-                    data.weekend_workdays.forEach(w => {
-                        const formatted = formatDate(w);
-                        if (formatted) weekendWorkdays.add(formatted)
-                        else throw new Error(`补班日格式错误：${w}`);
-                    });
-
-                    // 计算真正的公休天数（剔除周六和周日）
-                    let realHolidays = 0;
-                    holidays.forEach(dateStr => {
-                        // 将 "YYYY-MM-DD" 字符串转换为 Date 对象，并获取星期几
-                        const dayOfWeek = new Date(dateStr).getDay();
-                        // 0 代表周日，6 代表周六，只有 1~5 才是真正的工作日公休
-                        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-                            realHolidays++;
-                        }
-                    });
-
-                    statusEl.textContent = `✅ 解析成功！工作日公休: ${realHolidays} 天 | 周末班: ${weekendWorkdays.size} 天`;
-                    statusEl.style.color = '#10b981';
-                    renderCal();
-                    recalc();
-
-                } catch (err) {
-                    // 捕获解析错误或自定义校验错误
-                    statusEl.textContent = `❌ JSON格式错误: ${err.message}`;
-                    statusEl.style.color = '#ef4444';
+                } else {
+                    dom.specialEndDate.removeAttribute('min');
                 }
-            };
+            });
 
-            reader.onerror = function () {
-                statusEl.textContent = '❌ 文件读取失败，请重试';
-                statusEl.style.color = '#ef4444';
-            };
+            document.addEventListener('focusin', (e) => {
+                if (e.target.matches('input')) {
+                    hideAllInputErrors();
+                    setTimeout(() => e.target.select(), 0);
+                }
+            });
 
-            reader.readAsText(file);
-        });
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                }
+            });
 
-        // 清除JSON配置
-        function clearJson() {
-            holidays.clear();
-            weekendWorkdays.clear();
-            document.getElementById('jsonFile').value = '';
-            document.getElementById('fileStatus').textContent = '';
+            // ==================== 初始化 ====================
+            rebuildEffective();   // 先合并硬编码，再渲染
             renderCal();
+            syncSessInputs();
             recalc();
-        }
 
-        // 仅清除选中的日期区间
-        function clearSelected() {
-            selected.clear();
-            syncUI();
-            renderCal()
-            hideAllDateInputError();
-            document.getElementById('status').textContent = '已清除所有选中的日期区间';
-        }
-
-        // 全部清除，彻底重置特殊场次及输入框
-        function clearAll() {
-            selected.clear();
-            specialSessMap.clear();
-            renderSpecialList(); // 清空特殊场次列表UI
-
-            // 1. 清空日期和区间的输入框
-            document.getElementById('startDate').value = '';
-            document.getElementById('endDate').value = '';
-
-            // 2. 清空特殊场次的日期选择控件和场次输入控件
-            document.getElementById('specialDateInput').value = '';
-            document.getElementById('specialSessInput').value = '1'; // 场次清空后，默认重置为1
-
-            // 3. 重置常规星期场次为默认值
-            document.querySelectorAll('#sessRow input[data-s]').forEach(i => i.value = 1);
-
-            clearJson();
-            renderCal();
-            syncUI();
-            hideAllDateInputError();
-            document.getElementById('status').textContent = '已清空所有数据';
-        }
-
-        // 初始化
-        renderCal();
-
-
+        })();
     </script>
 </body>
 
