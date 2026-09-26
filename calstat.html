@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日历场次计算器 V3.4</title>
+    <title>日历场次计算器 V3.5</title>
     <style>
         :root {
             --primary: #3b82f6;
@@ -15,8 +15,10 @@
             --text: #1f2937;
             --text-secondary: #6b7280;
             --success: #10b981;
+            --success-deep: #059669;
             --danger: #ef4444;
             --warning: #f59e0b;
+            --warning-deep: #d97706;
             --purple: #7c3aed;
             --radius-sm: 6px;
             --radius: 8px;
@@ -382,7 +384,7 @@
         }
 
         .btn-success:hover {
-            background: #059669;
+            background: var(--success-deep);
         }
 
         .btn-warning {
@@ -390,7 +392,7 @@
         }
 
         .btn-warning:hover {
-            background: #d97706;
+            background: var(--warning-deep);
         }
 
         .btn-ghost {
@@ -538,11 +540,11 @@
         }
 
         .stat-card.workdays .num {
-            color: #059669;
+            color: var(--success-deep);
         }
 
         .stat-card.holidays .num {
-            color: #d97706;
+            color: var(--warning-deep);
         }
 
         .stat-card.weekend-work .num {
@@ -748,7 +750,7 @@
                 <div class="batch-row">
                     <label for="batchSessInput">一键批量:</label>
                     <input type="number" id="batchSessInput" value="1" min="0">
-                    <button class="btn btn-success" id="btnBatchApply">应用到全部单日场次</button>
+                    <button class="btn btn-success" id="btnBatchApply">应用到全部</button>
                 </div>
                 <div class="special-sess-row">
                     <label>特殊场次:</label>
@@ -803,7 +805,7 @@
                 interaction: {
                     moveThreshold: 10,
                     longPressMs: 400,
-                    ghostClickGap: 350,
+                    ghostClickGap: 320,
                     autoScrollEdge: 40,
                     autoScrollSpeed: 10,
                 },
@@ -822,7 +824,6 @@
             };
 
             // ==================== 硬编码放假安排（2026 年，国务院公布） ====================
-            // 作为基础层，任何时候都生效；上传 JSON 时叠加在其上，导入优先
             const DEFAULT_HOLIDAYS = [
                 '2026-01-01', '2026-01-02', '2026-01-03',
                 '2026-02-15', '2026-02-16', '2026-02-17', '2026-02-18',
@@ -850,7 +851,7 @@
                 holidays: new Set(),
                 weekendWorkdays: new Set(),
 
-                // 导入的部分（不持久化，刷新丢失；用于和硬编码合并）
+                // 导入的部分（不持久化，刷新丢失）
                 importedHolidays: new Set(),
                 importedWeekendWorkdays: new Set(),
 
@@ -863,14 +864,31 @@
                 },
             };
 
-            // 合并硬编码 + 导入，写入 state.holidays / state.weekendWorkdays
-            // 导入优先：同一天两边都有时，Set 自动去重，值本身一致（都是日期字符串）
+            // ==================== 排班数据接口 ====================
+            // 生效层（holidays / weekendWorkdays）是派生状态，
+            // 唯一真相来源是 DEFAULT_* + imported*。
+            // 所有修改 imported* 的操作必须通过下面两个接口，保证同步。
+
             function rebuildEffective() {
                 state.holidays = new Set([...DEFAULT_HOLIDAYS, ...state.importedHolidays]);
                 state.weekendWorkdays = new Set([...DEFAULT_WEEKEND_WORKDAYS, ...state.importedWeekendWorkdays]);
             }
 
-            // 撤销历史栈
+            // 设置导入层（传入已归一化的日期数组），并重建生效层
+            function setImportedSchedule(holidays, weekendWorkdays) {
+                state.importedHolidays = new Set(holidays);
+                state.importedWeekendWorkdays = new Set(weekendWorkdays);
+                rebuildEffective();
+            }
+
+            // 清空导入层，回退到硬编码
+            function clearImportedSchedule() {
+                state.importedHolidays = new Set();
+                state.importedWeekendWorkdays = new Set();
+                rebuildEffective();
+            }
+
+            // ==================== 撤销历史栈 ====================
             const history = [];
 
             function pushHistory() {
@@ -926,6 +944,7 @@
                 btnBatchApply: $('btnBatchApply'),
                 btnAddSpecial: $('btnAddSpecial'),
                 btnClearJson: $('btnClearJson'),
+                // 页面加载后节点不变，此处为快照
                 daysInputs: [...document.querySelectorAll('#daysRow input[data-d]')],
                 weekdaySessInputs: [...document.querySelectorAll('#sessRow input[data-s]')],
             };
@@ -983,8 +1002,13 @@
 
             // ==================== 日历渲染 ====================
             let monthObserver = null;
+            let monthUpdateRaf = null;
+            let lastMonthYM = null;
 
             function renderCal(start, end) {
+                // V3.5: 重建 DOM 后重置月份追踪，避免旧值导致标题不更新
+                lastMonthYM = null;
+
                 if (start && end) {
                     state.renderRange = { start, end };
                 } else {
@@ -1060,9 +1084,6 @@
 
                 setupMonthObserver();
             }
-
-            let monthUpdateRaf = null;
-            let lastMonthYM = null;
 
             function setupMonthObserver() {
                 if (monthObserver) monthObserver.disconnect();
@@ -1455,8 +1476,6 @@
                 setStatus('已清除所有选中的日期');
             }
 
-            // 「全部清除」：清除选中、特殊场次、单日场次配置，
-            // 但保留硬编码和导入的排班数据
             function clearAll() {
                 pushHistory();
                 state.selected.clear();
@@ -1584,55 +1603,54 @@
 
                 const reader = new FileReader();
                 reader.onload = (ev) => {
+                    // V3.5: 先完整验证并收集，全部通过后才应用到 state
+                    let parsed;
                     try {
-                        const data = JSON.parse(ev.target.result);
+                        parsed = JSON.parse(ev.target.result);
+                    } catch (err) {
+                        setFileStatus(`❌ 文件解析失败：${err.message}`, false);
+                        return;
+                    }
 
-                        if (!data || typeof data !== 'object') throw new Error('JSON 根节点必须是对象');
-                        if (!Array.isArray(data.holidays)) throw new Error('缺少 "holidays" 数组');
-                        if (!Array.isArray(data.weekend_workdays)) throw new Error('缺少 "weekend_workdays" 数组');
+                    try {
+                        if (!parsed || typeof parsed !== 'object') throw new Error('JSON 根节点必须是对象');
+                        if (!Array.isArray(parsed.holidays)) throw new Error('缺少 "holidays" 数组');
+                        if (!Array.isArray(parsed.weekend_workdays)) throw new Error('缺少 "weekend_workdays" 数组');
 
-                        // 只清空"导入"部分，硬编码保留
-                        state.importedHolidays.clear();
-                        state.importedWeekendWorkdays.clear();
+                        const newHolidays = [];
+                        const newWeekendWorkdays = [];
 
-                        data.holidays.forEach(h => {
+                        parsed.holidays.forEach(h => {
                             const formatted = formatDateInput(h);
                             if (!formatted) throw new Error(`休息日格式错误：${h}`);
-                            state.importedHolidays.add(formatted);
+                            newHolidays.push(formatted);
                         });
 
-                        data.weekend_workdays.forEach(w => {
+                        parsed.weekend_workdays.forEach(w => {
                             const formatted = formatDateInput(w);
                             if (!formatted) throw new Error(`补班日格式错误：${w}`);
-                            state.importedWeekendWorkdays.add(formatted);
+                            newWeekendWorkdays.push(formatted);
                         });
 
-                        // 合并到生效数据
-                        rebuildEffective();
+                        // 验证全通过，统一应用
+                        setImportedSchedule(newHolidays, newWeekendWorkdays);
 
-                        // 统计合并结果
+                        // 统计
                         let realHolidays = 0;
                         state.holidays.forEach(ds => {
                             const dow = getDayOfWeek(ds);
                             if (dow >= 1 && dow <= 5) realHolidays++;
                         });
+                        const weekendWorkCount = state.weekendWorkdays.size;
 
-                        const fromDefaultH = DEFAULT_HOLIDAYS.length;
-                        const fromImportH = state.importedHolidays.size;
-                        const mergedH = state.holidays.size;
-                        const overlapH = fromDefaultH + fromImportH - mergedH;
+                        const importedHolidaysCount = newHolidays.length;
+                        const importedWeekendCount = newWeekendWorkdays.length;
 
-                        const fromDefaultW = DEFAULT_WEEKEND_WORKDAYS.length;
-                        const fromImportW = state.importedWeekendWorkdays.size;
-                        const mergedW = state.weekendWorkdays.size;
-                        const overlapW = fromDefaultW + fromImportW - mergedW;
-
-                        let msg = `✅ 公休: 硬编码 ${fromDefaultH} + 导入 ${fromImportH}`;
-                        if (overlapH > 0) msg += `（重叠 ${overlapH}）`;
-                        msg += ` | 周末班: 硬编码 ${fromDefaultW} + 导入 ${fromImportW}`;
-                        if (overlapW > 0) msg += `（重叠 ${overlapW}）`;
-
-                        setFileStatus(msg, true);
+                        setFileStatus(
+                            `✅ 公休 ${realHolidays} 天 / 周末班 ${weekendWorkCount} 天` +
+                            `（含导入 ${importedHolidaysCount} / ${importedWeekendCount}）`,
+                            true
+                        );
                         syncUI();
 
                     } catch (err) {
@@ -1643,11 +1661,8 @@
                 reader.readAsText(file);
             }
 
-            // 清除导入数据，回退到硬编码
             function clearJsonData() {
-                state.importedHolidays.clear();
-                state.importedWeekendWorkdays.clear();
-                rebuildEffective();
+                clearImportedSchedule();
                 dom.jsonFile.value = '';
                 dom.fileStatus.textContent = '';
                 dom.fileStatus.className = 'file-status';
@@ -1730,22 +1745,24 @@
                 }
             });
 
+            // V3.5: 排除 date/file 类型，避免 select() 干扰日期选择器
             document.addEventListener('focusin', (e) => {
-                if (e.target.matches('input')) {
+                if (e.target.matches('input') && e.target.type !== 'date' && e.target.type !== 'file') {
                     hideAllInputErrors();
                     setTimeout(() => e.target.select(), 0);
                 }
             });
 
+            // V3.5: 输入框内 Ctrl+Z 走原生撤销，不拦截
             document.addEventListener('keydown', (e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input, textarea')) {
                     e.preventDefault();
                     undo();
                 }
             });
 
             // ==================== 初始化 ====================
-            rebuildEffective();   // 先合并硬编码，再渲染
+            rebuildEffective();
             renderCal();
             syncSessInputs();
             recalc();
